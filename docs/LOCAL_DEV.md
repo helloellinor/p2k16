@@ -176,6 +176,14 @@ go test ./...
 
 ## Troubleshooting
 
+- pq: column "created_by" does not exist (or similar errors when logging in with Go server)
+  - Your database schema is missing a column expected by the Go backend. To fix:
+    ```sql
+    ALTER TABLE account ADD COLUMN created_by integer;
+    ALTER TABLE account ADD COLUMN updated_by integer;
+    ```
+  - After running these, restart the Go server and try logging in again.
+
 - role "p2k16-web" does not exist
   - You are likely connecting to port 5432 instead of 2016. Set `DB_PORT=2016` or use the Makefile `run` target. The Go server now defaults to 2016.
 
