@@ -15,3 +15,20 @@ p2k16.pid
 .DS_Store
 *.pg
 docker
+
+# Go specific ignores
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+go.work
+
+# Build directories
+/dist/
+/build/
+
+# Go specific temporary files
+vendor/
