@@ -38,6 +38,7 @@ This document tracks the current progress of migrating from Python Flask to Go +
 ### ❌ Not Started
 - [ ] **Advanced User Management** - Admin user search and management
 - [ ] **Enhanced Badge UI** - Better displays and admin controls
+- [ ] **Implement styledocs** - Revert to page styleing in docs/STYLEDOCS files.
 - [ ] **Password Reset System** - Email-based reset workflow
 - [ ] **Membership Management** - Payment processing, status tracking
 - [ ] **Circle Management** - Groups and permissions
