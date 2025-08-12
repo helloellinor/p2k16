@@ -1,9 +1,11 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
@@ -31,15 +33,29 @@ func main() {
 	var demoMode bool
 	
 	if err != nil {
-		log.Printf("Database connection failed: %v", err)
-		log.Printf("Starting in DEMO MODE - no database required")
-		log.Printf("Use 'demo' with any password, 'super/super', or 'foo/foo' to login")
+		fmt.Println("\n" + strings.Repeat("=", 60))
+		fmt.Println("⚠️  P2K16 SERVER - FALLBACK TO DEMO MODE")
+		fmt.Println(strings.Repeat("=", 60))
+		fmt.Printf("❌ Database connection failed: %v\n", err)
+		fmt.Println("🎭 Falling back to DEMO MODE - no database required")
+		fmt.Println("🔑 Demo logins available:")
+		fmt.Println("   • demo/password")
+		fmt.Println("   • super/super") 
+		fmt.Println("   • foo/foo")
+		fmt.Println("⚠️  Note: All data operations will be simulated")
+		fmt.Println(strings.Repeat("=", 60))
 		
 		// Initialize demo handlers with nil repositories
 		handler = handlers.NewHandler(nil, nil, nil, nil, nil, nil)
 		demoMode = true
 	} else {
-		log.Printf("Database connection successful")
+		fmt.Println("\n" + strings.Repeat("=", 60))
+		fmt.Println("🚀 P2K16 SERVER - PRODUCTION MODE")
+		fmt.Println(strings.Repeat("=", 60))
+		fmt.Println("✅ Database connection successful")
+		fmt.Printf("🗄️  Connected to: %s@%s:%d/%s\n", dbConfig.User, dbConfig.Host, dbConfig.Port, dbConfig.DBName)
+		fmt.Println("💾 All data operations will be persisted to database")
+		fmt.Println(strings.Repeat("=", 60))
 		defer db.Close()
 
 		// Initialize repositories
@@ -130,8 +146,15 @@ func main() {
 
 	// Start server
 	port := getEnv("PORT", "8080")
-	log.Printf("Starting server on port %s", port)
-	log.Printf("Application will be available at http://localhost:%s", port)
+	
+	if demoMode {
+		fmt.Printf("🌐 Demo server starting on http://localhost:%s\n", port)
+		fmt.Println("📋 Available features: Dashboard, Profile Management, Badge System")
+	} else {
+		fmt.Printf("🌐 Production server starting on http://localhost:%s\n", port)
+		fmt.Println("📋 Full feature set available with database persistence")
+	}
+	fmt.Println("🚀 Server starting...")
 
 	if err := r.Run(":" + port); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
