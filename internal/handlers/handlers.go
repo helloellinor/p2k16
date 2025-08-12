@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -11,12 +12,14 @@ import (
 type Handler struct {
 	accountRepo *models.AccountRepository
 	circleRepo  *models.CircleRepository
+	badgeRepo   *models.BadgeRepository
 }
 
-func NewHandler(accountRepo *models.AccountRepository, circleRepo *models.CircleRepository) *Handler {
+func NewHandler(accountRepo *models.AccountRepository, circleRepo *models.CircleRepository, badgeRepo *models.BadgeRepository) *Handler {
 	return &Handler{
 		accountRepo: accountRepo,
 		circleRepo:  circleRepo,
+		badgeRepo:   badgeRepo,
 	}
 }
 
@@ -244,15 +247,43 @@ func (h *Handler) GetActiveMembers(c *gin.Context) {
 // GetUserBadges returns user badges (for HTMX, requires authentication)
 func (h *Handler) GetUserBadges(c *gin.Context) {
 	user := middleware.GetCurrentUser(c)
-
-	html := `
-		<div class="badge-list">
-			<span class="badge bg-primary me-2 mb-2">Go Programming</span>
-			<span class="badge bg-success me-2 mb-2">HTMX Expert</span>
-			<span class="badge bg-info me-2 mb-2">Database Admin</span>
-			<p class="text-muted mt-2">User ` + user.Username + ` has 3 badges.</p>
+	
+	badges, err := h.badgeRepo.GetBadgesForAccount(user.ID)
+	if err != nil {
+		c.Data(http.StatusInternalServerError, "text/html; charset=utf-8", 
+			[]byte(`<div class="alert alert-danger">Failed to load badges</div>`))
+		return
+	}
+	
+	if len(badges) == 0 {
+		html := `
+			<div class="text-center">
+				<p class="text-muted">No badges yet!</p>
+				<button class="btn btn-primary" hx-get="/api/badges/available" hx-target="#available-badges" hx-swap="innerHTML">
+					Browse Available Badges
+				</button>
+				<div id="available-badges" class="mt-3"></div>
+			</div>`
+		c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
+		return
+	}
+	
+	html := `<div class="badge-list">`
+	for _, badge := range badges {
+		color := "primary"
+		if badge.BadgeDescription.Color.Valid && badge.BadgeDescription.Color.String != "" {
+			color = badge.BadgeDescription.Color.String
+		}
+		
+		html += `<span class="badge bg-` + color + ` me-2 mb-2">` + badge.BadgeDescription.Title + `</span>`
+	}
+	html += `<p class="text-muted mt-2">You have ` + fmt.Sprintf("%d", len(badges)) + ` badges.</p>`
+	html += `<button class="btn btn-sm btn-outline-primary" hx-get="/api/badges/available" hx-target="#available-badges" hx-swap="innerHTML">
+				Browse More Badges
+			</button>
+			<div id="available-badges" class="mt-3"></div>
 		</div>`
-
+	
 	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
 }
 
@@ -297,6 +328,146 @@ func (h *Handler) AuthLogin(c *gin.Context) {
 				window.location.href = '/dashboard';
 			}, 1000);
 		</script>`
+
+	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
+}
+
+// GetAvailableBadges returns a list of available badge descriptions
+func (h *Handler) GetAvailableBadges(c *gin.Context) {
+	descriptions, err := h.badgeRepo.GetAllDescriptions()
+	if err != nil {
+		c.Data(http.StatusInternalServerError, "text/html; charset=utf-8",
+			[]byte(`<div class="alert alert-danger">Failed to load available badges</div>`))
+		return
+	}
+
+	html := `
+<div class="card">
+<div class="card-header">
+<h6>Available Badges</h6>
+</div>
+<div class="card-body">
+<div class="row">`
+
+	for _, desc := range descriptions {
+		color := "outline-primary"
+		if desc.Color.Valid && desc.Color.String != "" {
+			color = "outline-" + desc.Color.String
+		}
+
+		html += `
+<div class="col-md-6 mb-2">
+<div class="d-flex justify-content-between align-items-center">
+<span class="badge ` + color + `">` + desc.Title + `</span>
+<button class="btn btn-sm btn-success" 
+        hx-post="/api/badges/award" 
+        hx-vals='{"badge_title":"` + desc.Title + `"}'
+        hx-target="#badge-result"
+        hx-swap="innerHTML">
+Award to Self
+</button>
+</div>
+</div>`
+	}
+
+	html += `
+</div>
+<div id="badge-result" class="mt-3"></div>
+<div class="mt-3">
+<h6>Create New Badge</h6>
+<form hx-post="/api/badges/create" hx-target="#badge-result">
+<div class="input-group">
+<input type="text" class="form-control" name="title" placeholder="Badge title" required>
+<button type="submit" class="btn btn-primary">Create & Award</button>
+</div>
+</form>
+</div>
+</div>
+</div>`
+
+	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
+}
+
+// CreateBadge creates a new badge description
+func (h *Handler) CreateBadge(c *gin.Context) {
+	user := middleware.GetCurrentUser(c)
+	title := c.PostForm("title")
+
+	if title == "" {
+		c.Data(http.StatusBadRequest, "text/html; charset=utf-8",
+			[]byte(`<div class="alert alert-danger">Badge title is required</div>`))
+		return
+	}
+
+	// Check if badge already exists
+	existing, _ := h.badgeRepo.FindBadgeDescriptionByTitle(title)
+	if existing != nil {
+		c.Data(http.StatusBadRequest, "text/html; charset=utf-8",
+			[]byte(`<div class="alert alert-warning">Badge "`+title+`" already exists</div>`))
+		return
+	}
+
+	// Create badge description
+	desc, err := h.badgeRepo.CreateBadgeDescription(title, user.ID)
+	if err != nil {
+		c.Data(http.StatusInternalServerError, "text/html; charset=utf-8",
+			[]byte(`<div class="alert alert-danger">Failed to create badge</div>`))
+		return
+	}
+
+	// Award to self
+	_, err = h.badgeRepo.AwardBadge(user.ID, desc.ID, user.ID)
+	if err != nil {
+		c.Data(http.StatusInternalServerError, "text/html; charset=utf-8",
+			[]byte(`<div class="alert alert-danger">Badge created but failed to award</div>`))
+		return
+	}
+
+	html := `
+<div class="alert alert-success">
+Badge "` + title + `" created and awarded! 
+<button class="btn btn-sm btn-primary ms-2" hx-get="/api/user/badges" hx-target="#user-badges">
+Refresh Badges
+</button>
+</div>`
+
+	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
+}
+
+// AwardBadge awards an existing badge to the current user
+func (h *Handler) AwardBadge(c *gin.Context) {
+	user := middleware.GetCurrentUser(c)
+	badgeTitle := c.PostForm("badge_title")
+
+	if badgeTitle == "" {
+		c.Data(http.StatusBadRequest, "text/html; charset=utf-8",
+			[]byte(`<div class="alert alert-danger">Badge title is required</div>`))
+		return
+	}
+
+	// Find badge description
+	desc, err := h.badgeRepo.FindBadgeDescriptionByTitle(badgeTitle)
+	if err != nil {
+		c.Data(http.StatusNotFound, "text/html; charset=utf-8",
+			[]byte(`<div class="alert alert-danger">Badge "`+badgeTitle+`" not found</div>`))
+		return
+	}
+
+	// Award badge
+	_, err = h.badgeRepo.AwardBadge(user.ID, desc.ID, user.ID)
+	if err != nil {
+		c.Data(http.StatusInternalServerError, "text/html; charset=utf-8",
+			[]byte(`<div class="alert alert-danger">Failed to award badge</div>`))
+		return
+	}
+
+	html := `
+<div class="alert alert-success">
+Badge "` + badgeTitle + `" awarded! 
+<button class="btn btn-sm btn-primary ms-2" hx-get="/api/user/badges" hx-target="#user-badges">
+Refresh Badges
+</button>
+</div>`
 
 	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
 }

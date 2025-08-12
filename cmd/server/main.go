@@ -34,9 +34,10 @@ func main() {
 	// Initialize repositories
 	accountRepo := models.NewAccountRepository(db.DB)
 	circleRepo := models.NewCircleRepository(db.DB)
+	badgeRepo := models.NewBadgeRepository(db.DB)
 
 	// Initialize handlers
-	handler := handlers.NewHandler(accountRepo, circleRepo)
+	handler := handlers.NewHandler(accountRepo, circleRepo, badgeRepo)
 
 	// Set up Gin router
 	r := gin.New()
@@ -80,6 +81,9 @@ func main() {
 		apiProtected.Use(middleware.RequireAuth(accountRepo))
 		{
 			apiProtected.GET("/user/badges", handler.GetUserBadges)
+			apiProtected.GET("/badges/available", handler.GetAvailableBadges)
+			apiProtected.POST("/badges/create", handler.CreateBadge)
+			apiProtected.POST("/badges/award", handler.AwardBadge)
 		}
 	}
 

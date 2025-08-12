@@ -46,6 +46,38 @@ type CircleMember struct {
 	UpdatedBy sql.NullInt64  `json:"updated_by"`
 }
 
+// BadgeDescription represents a badge type/template
+type BadgeDescription struct {
+	ID                    int            `json:"id"`
+	Title                 string         `json:"title"`
+	Description           sql.NullString `json:"description"`
+	CertificationCircleID sql.NullInt64  `json:"certification_circle_id"`
+	Slug                  sql.NullString `json:"slug"`
+	Icon                  sql.NullString `json:"icon"`
+	Color                 sql.NullString `json:"color"`
+	CreatedAt             time.Time      `json:"created_at"`
+	UpdatedAt             time.Time      `json:"updated_at"`
+	CreatedBy             sql.NullInt64  `json:"created_by"`
+	UpdatedBy             sql.NullInt64  `json:"updated_by"`
+}
+
+// AccountBadge represents a badge awarded to an account
+type AccountBadge struct {
+	ID                 int           `json:"id"`
+	AccountID          int           `json:"account_id"`
+	BadgeDescriptionID int           `json:"badge_description_id"`
+	AwardedByID        sql.NullInt64 `json:"awarded_by_id"`
+	CreatedAt          time.Time     `json:"created_at"`
+	UpdatedAt          time.Time     `json:"updated_at"`
+	CreatedBy          sql.NullInt64 `json:"created_by"`
+	UpdatedBy          sql.NullInt64 `json:"updated_by"`
+
+	// Relationships (populated when needed)
+	Account          *Account          `json:"account,omitempty"`
+	BadgeDescription *BadgeDescription `json:"badge_description,omitempty"`
+	AwardedBy        *Account          `json:"awarded_by,omitempty"`
+}
+
 // Badge represents a competency badge
 type Badge struct {
 	ID          int            `json:"id"`
