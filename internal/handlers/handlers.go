@@ -310,6 +310,7 @@ func (h *Handler) Dashboard(c *gin.Context) {
                 </div>
                 <div class="p2k16-card__body">
                     <a href="/profile" class="p2k16-button p2k16-button--primary p2k16-button--full p2k16-mb-4">Edit Profile</a>
+                    <a href="/admin" class="p2k16-button p2k16-button--warning p2k16-button--full p2k16-mb-4">Administration</a>
                     <a href="/" class="p2k16-button p2k16-button--secondary p2k16-button--full">Back to Home</a>
                 </div>
             </div>
@@ -921,4 +922,268 @@ func (h *Handler) GetActiveMembersDetailed(c *gin.Context) {
 		"</div>"
 
 	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
+}
+
+// Profile shows the user profile page (requires authentication)
+func (h *Handler) Profile(c *gin.Context) {
+user := middleware.GetCurrentUser(c)
+
+html := `
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Profile - P2K16</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <link href="/styles/p2k16-design-system.css" rel="stylesheet">
+</head>
+<body>
+    <header class="p2k16-header">
+        <div class="p2k16-container p2k16-header__container">
+            <a href="/" class="p2k16-header__brand">P2K16</a>
+            <nav class="p2k16-header__nav">
+                <div class="p2k16-header__user">
+                    <span class="p2k16-text--secondary">Welcome, <strong>` + user.Username + `</strong></span>
+                    <a href="/logout" class="p2k16-button p2k16-button--secondary p2k16-button--sm">Logout</a>
+                </div>
+            </nav>
+        </div>
+    </header>
+    
+    <main class="p2k16-container p2k16-container--narrow p2k16-mt-8">
+        <div class="p2k16-mb-8">
+            <h1>User Profile</h1>
+            <p class="p2k16-text--secondary">Manage your account settings and view your membership status</p>
+        </div>
+
+        <!-- Change Password Section -->
+        <div class="p2k16-card p2k16-mb-8">
+            <div class="p2k16-card__header">
+                <h5 class="p2k16-card__title">Change Password</h5>
+            </div>
+            <div class="p2k16-card__body">
+                <form class="p2k16-form" hx-post="/api/profile/change-password" hx-target="#password-result">
+                    <div class="p2k16-field">
+                        <label for="oldPassword" class="p2k16-field__label">Current Password</label>
+                        <input type="password" class="p2k16-field__input" id="oldPassword" name="oldPassword" required>
+                    </div>
+                    <div class="p2k16-field">
+                        <label for="newPassword" class="p2k16-field__label">New Password</label>
+                        <input type="password" class="p2k16-field__input" id="newPassword" name="newPassword" required>
+                    </div>
+                    <div class="p2k16-field">
+                        <label for="confirmPassword" class="p2k16-field__label">Confirm New Password</label>
+                        <input type="password" class="p2k16-field__input" id="confirmPassword" name="confirmPassword" required>
+                    </div>
+                    <button type="submit" class="p2k16-button p2k16-button--primary">Change Password</button>
+                </form>
+                <div id="password-result" class="p2k16-mt-6"></div>
+            </div>
+        </div>
+
+        <!-- Profile Details Section -->
+        <div class="p2k16-card p2k16-mb-8">
+            <div class="p2k16-card__header">
+                <h5 class="p2k16-card__title">Profile Details</h5>
+            </div>
+            <div class="p2k16-card__body">
+                <form class="p2k16-form" hx-post="/api/profile/update" hx-target="#profile-result">
+                    <div class="p2k16-field">
+                        <label for="name" class="p2k16-field__label">Full Name</label>
+                        <input type="text" class="p2k16-field__input" id="name" name="name" placeholder="Enter your full name">
+                        <div class="p2k16-field__help">This will be displayed on your public profile</div>
+                    </div>
+                    <div class="p2k16-field">
+                        <label for="email" class="p2k16-field__label">Email Address</label>
+                        <input type="email" class="p2k16-field__input" id="email" name="email" value="` + user.Account.Email + `" readonly>
+                        <div class="p2k16-field__help">Contact an administrator to change your email address</div>
+                    </div>
+                    <div class="p2k16-field">
+                        <label for="phone" class="p2k16-field__label">Phone Number</label>
+                        <input type="tel" class="p2k16-field__input" id="phone" name="phone" placeholder="Enter your phone number">
+                        <div class="p2k16-field__help">Used for emergency contact and door access notifications</div>
+                    </div>
+                    <button type="submit" class="p2k16-button p2k16-button--primary">Save Changes</button>
+                </form>
+                <div id="profile-result" class="p2k16-mt-6"></div>
+            </div>
+        </div>
+
+        <!-- Badges Section -->
+        <div class="p2k16-card p2k16-mb-8">
+            <div class="p2k16-card__header">
+                <h5 class="p2k16-card__title">Your Badges</h5>
+            </div>
+            <div class="p2k16-card__body">
+                <div id="profile-badges">
+                    <button class="p2k16-button p2k16-button--secondary" 
+                            hx-get="/api/user/badges" 
+                            hx-target="#profile-badges">Load Your Badges</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Navigation -->
+        <div class="p2k16-text--center">
+            <a href="/dashboard" class="p2k16-button p2k16-button--secondary">Back to Dashboard</a>
+            <a href="/" class="p2k16-button p2k16-button--secondary">Home</a>
+        </div>
+    </main>
+</body>
+</html>`
+
+c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
+}
+
+// Admin shows the admin interface (requires authentication)
+func (h *Handler) Admin(c *gin.Context) {
+user := middleware.GetCurrentUser(c)
+
+html := `
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Admin - P2K16</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <link href="/styles/p2k16-design-system.css" rel="stylesheet">
+</head>
+<body>
+    <header class="p2k16-header">
+        <div class="p2k16-container p2k16-header__container">
+            <a href="/" class="p2k16-header__brand">P2K16</a>
+            <nav class="p2k16-header__nav">
+                <div class="p2k16-header__user">
+                    <span class="p2k16-text--secondary">Welcome, <strong>` + user.Username + `</strong></span>
+                    <a href="/logout" class="p2k16-button p2k16-button--secondary p2k16-button--sm">Logout</a>
+                </div>
+            </nav>
+        </div>
+    </header>
+    
+    <main class="p2k16-container p2k16-mt-8">
+        <div class="p2k16-mb-8">
+            <h1>Administration</h1>
+            <p class="p2k16-text--secondary">Manage users, tools, badges, and system settings</p>
+        </div>
+
+        <div class="p2k16-grid p2k16-grid--3-col">
+            <!-- User Management -->
+            <div class="p2k16-card">
+                <div class="p2k16-card__header">
+                    <h5 class="p2k16-card__title">User Management</h5>
+                </div>
+                <div class="p2k16-card__body">
+                    <p class="p2k16-text--secondary p2k16-mb-6">Manage user accounts and permissions</p>
+                    <button class="p2k16-button p2k16-button--primary p2k16-button--full p2k16-mb-4" 
+                            hx-get="/api/admin/users" 
+                            hx-target="#admin-content">View All Users</button>
+                    <button class="p2k16-button p2k16-button--secondary p2k16-button--full" 
+                            hx-get="/api/admin/users/new" 
+                            hx-target="#admin-content">Create New User</button>
+                </div>
+            </div>
+
+            <!-- Badge Management -->
+            <div class="p2k16-card">
+                <div class="p2k16-card__header">
+                    <h5 class="p2k16-card__title">Badge System</h5>
+                </div>
+                <div class="p2k16-card__body">
+                    <p class="p2k16-text--secondary p2k16-mb-6">Manage badges and certifications</p>
+                    <button class="p2k16-button p2k16-button--success p2k16-button--full p2k16-mb-4" 
+                            hx-get="/api/admin/badges" 
+                            hx-target="#admin-content">Manage Badges</button>
+                    <button class="p2k16-button p2k16-button--secondary p2k16-button--full" 
+                            hx-get="/api/admin/badges/award" 
+                            hx-target="#admin-content">Award Badge</button>
+                </div>
+            </div>
+
+            <!-- Tool Management -->
+            <div class="p2k16-card">
+                <div class="p2k16-card__header">
+                    <h5 class="p2k16-card__title">Tool Management</h5>
+                </div>
+                <div class="p2k16-card__body">
+                    <p class="p2k16-text--secondary p2k16-mb-6">Manage tools and equipment</p>
+                    <button class="p2k16-button p2k16-button--warning p2k16-button--full p2k16-mb-4" 
+                            hx-get="/api/admin/tools" 
+                            hx-target="#admin-content">Manage Tools</button>
+                    <button class="p2k16-button p2k16-button--secondary p2k16-button--full" 
+                            hx-get="/api/admin/tools/new" 
+                            hx-target="#admin-content">Add New Tool</button>
+                </div>
+            </div>
+
+            <!-- Company Management -->
+            <div class="p2k16-card">
+                <div class="p2k16-card__header">
+                    <h5 class="p2k16-card__title">Companies</h5>
+                </div>
+                <div class="p2k16-card__body">
+                    <p class="p2k16-text--secondary p2k16-mb-6">Manage corporate memberships</p>
+                    <button class="p2k16-button p2k16-button--primary p2k16-button--full p2k16-mb-4" 
+                            hx-get="/api/admin/companies" 
+                            hx-target="#admin-content">View Companies</button>
+                    <button class="p2k16-button p2k16-button--secondary p2k16-button--full" 
+                            hx-get="/api/admin/companies/new" 
+                            hx-target="#admin-content">Add Company</button>
+                </div>
+            </div>
+
+            <!-- Circle Management -->
+            <div class="p2k16-card">
+                <div class="p2k16-card__header">
+                    <h5 class="p2k16-card__title">Circles</h5>
+                </div>
+                <div class="p2k16-card__body">
+                    <p class="p2k16-text--secondary p2k16-mb-6">Manage user groups and permissions</p>
+                    <button class="p2k16-button p2k16-button--primary p2k16-button--full p2k16-mb-4" 
+                            hx-get="/api/admin/circles" 
+                            hx-target="#admin-content">View Circles</button>
+                    <button class="p2k16-button p2k16-button--secondary p2k16-button--full" 
+                            hx-get="/api/admin/circles/new" 
+                            hx-target="#admin-content">Create Circle</button>
+                </div>
+            </div>
+
+            <!-- System Settings -->
+            <div class="p2k16-card">
+                <div class="p2k16-card__header">
+                    <h5 class="p2k16-card__title">System Settings</h5>
+                </div>
+                <div class="p2k16-card__body">
+                    <p class="p2k16-text--secondary p2k16-mb-6">Configure system parameters</p>
+                    <button class="p2k16-button p2k16-button--secondary p2k16-button--full p2k16-mb-4" 
+                            hx-get="/api/admin/settings" 
+                            hx-target="#admin-content">System Settings</button>
+                    <button class="p2k16-button p2k16-button--danger p2k16-button--full" 
+                            hx-get="/api/admin/logs" 
+                            hx-target="#admin-content">View Logs</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dynamic Content Area -->
+        <div class="p2k16-mt-8">
+            <div id="admin-content">
+                <div class="p2k16-card">
+                    <div class="p2k16-card__body">
+                        <p class="p2k16-text--center p2k16-text--muted">Select an action from above to get started</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Navigation -->
+        <div class="p2k16-text--center p2k16-mt-8">
+            <a href="/dashboard" class="p2k16-button p2k16-button--secondary">Back to Dashboard</a>
+            <a href="/" class="p2k16-button p2k16-button--secondary">Home</a>
+        </div>
+    </main>
+</body>
+</html>`
+
+c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
 }

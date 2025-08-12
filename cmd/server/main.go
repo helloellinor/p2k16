@@ -87,6 +87,8 @@ func main() {
 	protected.Use(middleware.RequireAuth(handler.GetAccountRepo()))
 	{
 		protected.GET("/dashboard", handler.Dashboard)
+		protected.GET("/profile", handler.Profile)
+		protected.GET("/admin", handler.Admin)
 	}
 
 	// API routes
