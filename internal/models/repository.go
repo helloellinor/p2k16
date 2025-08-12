@@ -613,4 +613,171 @@ func (r *EventRepository) GetRecentEvents(domain string, limit int) ([]Event, er
 	}
 
 	return events, nil
+// DoorRepository handles database operations for doors and access
+type DoorRepository struct {
+	db *sql.DB
+}
+
+func NewDoorRepository(db *sql.DB) *DoorRepository {
+	return &DoorRepository{db: db}
+}
+
+// GetConfiguredDoors returns hardcoded door configurations
+// In a real implementation, this would come from a config file or database
+func (r *DoorRepository) GetConfiguredDoors() []Door {
+	return []Door{
+		{
+			Key:       "main",
+			Name:      "Main Door",
+			OpenTime:  5,
+			Type:      "mqtt",
+			Topic:     "bitraf/door/main",
+			CircleIDs: []int{1}, // Admin circle
+		},
+		{
+			Key:       "workshop", 
+			Name:      "Workshop Door",
+			OpenTime:  5,
+			Type:      "mqtt",
+			Topic:     "bitraf/door/workshop",
+			CircleIDs: []int{1, 2}, // Admin and member circles
+		},
+		{
+			Key:       "storage",
+			Name:      "Storage Room",
+			OpenTime:  3,
+			Type:      "dlock",
+			URL:       "http://storage-lock.local",
+			CircleIDs: []int{1}, // Admin only
+		},
+	}
+}
+
+// CanAccessDoor checks if an account can access a specific door
+func (r *DoorRepository) CanAccessDoor(accountID int, door Door, membershipRepo *MembershipRepository) (bool, error) {
+	// Check if account is company employee (has access to all doors)
+	isEmployee, err := membershipRepo.IsAccountCompanyEmployee(accountID)
+	if err != nil {
+		return false, err
+	}
+	if isEmployee {
+		return true, nil
+	}
+
+	// Check if account is paying member
+	isPaying, err := membershipRepo.IsAccountPayingMember(accountID)
+	if err != nil {
+		return false, err
+	}
+	if !isPaying {
+		return false, nil // Must be paying member for door access
+	}
+
+	// Check circle membership if required
+	if len(door.CircleIDs) > 0 {
+		for _, circleID := range door.CircleIDs {
+			isMember, err := r.IsAccountInCircle(accountID, circleID)
+			if err != nil {
+				return false, err
+			}
+			if isMember {
+				return true, nil
+			}
+		}
+		return false, nil // Not in any required circle
+	}
+
+	return true, nil // Paying member with no circle requirements
+}
+
+// IsAccountInCircle checks if an account is a member of a circle
+func (r *DoorRepository) IsAccountInCircle(accountID int, circleID int) (bool, error) {
+	query := `SELECT COUNT(*) FROM circle_member WHERE account = $1 AND circle = $2`
+	
+	var count int
+	err := r.db.QueryRow(query, accountID, circleID).Scan(&count)
+	if err != nil {
+		return false, err
+	}
+	
+	return count > 0, nil
+}
+
+// GetAccessibleDoors returns doors that an account can access
+func (r *DoorRepository) GetAccessibleDoors(accountID int, membershipRepo *MembershipRepository) ([]Door, error) {
+	allDoors := r.GetConfiguredDoors()
+	var accessibleDoors []Door
+	
+	for _, door := range allDoors {
+		canAccess, err := r.CanAccessDoor(accountID, door, membershipRepo)
+		if err != nil {
+			return nil, err
+		}
+		if canAccess {
+			accessibleDoors = append(accessibleDoors, door)
+		}
+	}
+	
+	return accessibleDoors, nil
+}
+
+// LogDoorAccess records a door access event
+func (r *DoorRepository) LogDoorAccess(accountID int, doorKey string) (*DoorAccess, error) {
+	query := `
+		INSERT INTO door_access (account, door_key, opened_at, created_at, updated_at, created_by, updated_by)
+		VALUES ($1, $2, NOW(), NOW(), NOW(), $1, $1)
+		RETURNING id, opened_at, created_at, updated_at`
+
+	var access DoorAccess
+	access.AccountID = accountID
+	access.DoorKey = doorKey
+	access.CreatedBy = sql.NullInt64{Int64: int64(accountID), Valid: true}
+	access.UpdatedBy = sql.NullInt64{Int64: int64(accountID), Valid: true}
+
+	err := r.db.QueryRow(query, accountID, doorKey).Scan(
+		&access.ID, &access.OpenedAt, &access.CreatedAt, &access.UpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return &access, nil
+}
+
+// GetRecentDoorAccess returns recent door access events
+func (r *DoorRepository) GetRecentDoorAccess(limit int) ([]DoorAccess, error) {
+	query := `
+		SELECT da.id, da.account, da.door_key, da.opened_at,
+		       da.created_at, da.updated_at, da.created_by, da.updated_by,
+		       a.username, a.name
+		FROM door_access da
+		JOIN account a ON da.account = a.id
+		ORDER BY da.opened_at DESC
+		LIMIT $1`
+
+	rows, err := r.db.Query(query, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var accesses []DoorAccess
+	for rows.Next() {
+		var access DoorAccess
+		var account Account
+		err := rows.Scan(
+			&access.ID, &access.AccountID, &access.DoorKey, &access.OpenedAt,
+			&access.CreatedAt, &access.UpdatedAt, &access.CreatedBy, &access.UpdatedBy,
+			&account.Username, &account.Name,
+		)
+		if err != nil {
+			return nil, err
+		}
+		account.ID = access.AccountID
+		access.Account = &account
+		accesses = append(accesses, access)
+	}
+
+	return accesses, nil
+}
 }

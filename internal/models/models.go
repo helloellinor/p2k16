@@ -216,3 +216,30 @@ type StripeCustomer struct {
 	CreatedBy    sql.NullInt64 `json:"created_by"`
 	UpdatedBy    sql.NullInt64 `json:"updated_by"`
 }
+
+// Door represents a door configuration
+type Door struct {
+	Key        string   `json:"key"`
+	Name       string   `json:"name"`
+	OpenTime   int      `json:"open_time"`   // Duration in seconds
+	Type       string   `json:"type"`        // "mqtt" or "dlock"
+	Topic      string   `json:"topic"`       // For MQTT doors
+	URL        string   `json:"url"`         // For dlock doors
+	CircleIDs  []int    `json:"circle_ids"`  // Required circles for access
+	Circles    []Circle `json:"circles,omitempty"`
+}
+
+// DoorAccess represents a door access log entry
+type DoorAccess struct {
+	ID        int           `json:"id"`
+	AccountID int           `json:"account_id"`
+	DoorKey   string        `json:"door_key"`
+	OpenedAt  time.Time     `json:"opened_at"`
+	CreatedAt time.Time     `json:"created_at"`
+	UpdatedAt time.Time     `json:"updated_at"`
+	CreatedBy sql.NullInt64 `json:"created_by"`
+	UpdatedBy sql.NullInt64 `json:"updated_by"`
+
+	// Relationships
+	Account *Account `json:"account,omitempty"`
+}
