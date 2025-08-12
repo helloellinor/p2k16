@@ -362,14 +362,18 @@ func (h *Handler) GetUserBadges(c *gin.Context) {
 
 // AuthLogin handles login form submission
 func (h *Handler) AuthLogin(c *gin.Context) {
-	username := c.PostForm("username")
-	password := c.PostForm("password")
+		username := c.PostForm("username")
+		password := c.PostForm("password")
 
-	if username == "" || password == "" {
-		c.Data(http.StatusBadRequest, "text/html; charset=utf-8",
-			[]byte(`<div class="alert alert-danger">Username and password are required</div>`))
-		return
-	}
+		// Debug: log received credentials (do not log passwords in production!)
+		fmt.Printf("[DEBUG] Login attempt: username='%s'\n", username)
+
+		if username == "" || password == "" {
+			fmt.Println("[DEBUG] Username or password missing")
+			c.Data(http.StatusBadRequest, "text/html; charset=utf-8",
+				[]byte(`<div class="alert alert-danger">Username and password are required</div>`))
+			return
+		}
 
 	// Handle demo mode authentication
 	if h.demoMode || h.accountRepo == nil {
@@ -431,18 +435,21 @@ func (h *Handler) AuthLogin(c *gin.Context) {
 	}
 
 	// Normal database authentication
-	account, err := h.accountRepo.FindByUsername(username)
-	if err != nil {
-		c.Data(http.StatusUnauthorized, "text/html; charset=utf-8",
-			[]byte(`<div class="alert alert-danger">Invalid username or password</div>`))
-		return
-	}
-
-	if !account.ValidatePassword(password) {
-		c.Data(http.StatusUnauthorized, "text/html; charset=utf-8",
-			[]byte(`<div class="alert alert-danger">Invalid username or password</div>`))
-		return
-	}
+		account, err := h.accountRepo.FindByUsername(username)
+		if err != nil {
+			fmt.Printf("[DEBUG] User '%s' not found in DB or error: %v\n", username, err)
+			c.Data(http.StatusUnauthorized, "text/html; charset=utf-8",
+				[]byte(`<div class="alert alert-danger">Invalid username or password</div>`))
+			return
+		}
+		fmt.Printf("[DEBUG] User '%s' found in DB, checking password...\n", username)
+		if !account.ValidatePassword(password) {
+			fmt.Printf("[DEBUG] Password check failed for user '%s'\n", username)
+			c.Data(http.StatusUnauthorized, "text/html; charset=utf-8",
+				[]byte(`<div class="alert alert-danger">Invalid username or password</div>`))
+			return
+		}
+		fmt.Printf("[DEBUG] Password check passed for user '%s'\n", username)
 
 	// Login user by setting session
 	if err := middleware.LoginUser(c, account); err != nil {

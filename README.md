@@ -6,6 +6,8 @@ This comprehensive guide provides step-by-step instructions for setting up and r
 
 Quick start: see docs/LOCAL_DEV.md for an end-to-end local setup (macOS + fish) including Docker/Postgres, Flyway, and running both apps.
 
+**Troubleshooting Go login/database errors?** See the troubleshooting section in docs/LOCAL_DEV.md for fixes to common schema and migration issues (e.g., missing columns like created_by).
+
 ---
 
 # ⚠️ Python Version Compatibility Warning
