@@ -3,9 +3,9 @@
 set -euo pipefail
 set -x
 
-self="${0##*/}"
-bin=${0%/*}
-basedir="${bin%/*}"
+# Resolve script directory and project root robustly
+bin="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+basedir="$(cd "$bin/.." && pwd)"
 
 if [[ ! -d env ]]
 then
@@ -14,7 +14,8 @@ fi
 
 env/bin/pip install -r requirements.txt
 
-flyway migrate
+# Run DB migrations using the bundled Flyway and explicit config
+"$bin/flyway" -configFiles="$basedir/infrastructure/flyway.conf" migrate
 
 export FLASK_APP=p2k16.web.server
 export FLASK_DEBUG=1
