@@ -1074,36 +1074,138 @@
         var self = this;
 
         self.tools = tools;
+        self.searchText = '';
+        self.sortField = 'name';
+        self.sortReverse = false;
+        self.lastUpdated = new Date();
+
+        self.sortBy = function(field) {
+            if (self.sortField === field) {
+                self.sortReverse = !self.sortReverse;
+            } else {
+                self.sortField = field;
+                self.sortReverse = false;
+            }
+        };
+
+        self.getSortIcon = function(field) {
+            if (self.sortField !== field) {
+                return '';
+            }
+            return self.sortReverse ? 'fa-sort-up' : 'fa-sort-down';
+        };
     }
 
     /**
      * @constructor
      */
-    function AdminToolDetailController($location, ToolDataService, tools, tool) {
+    function AdminToolDetailController($location, $uibModal, ToolDataService, tools, tool) {
         var self = this;
+        var isNew = !tool.id;
 
-        self.isNew = !tool.id;
+        self.isNew = isNew;
+        self.saving = false;
+        self.message = null;
+        self.error = null;
 
         function setTool(tool) {
             self.tool = angular.copy(tool);
             isNew = !self.tool.id;
-            self.title = isNew ? "New tool" : self.tool.name;
+            self.isNew = isNew;
+            self.title = isNew ? "New Tool" : "Edit " + self.tool.name;
         }
 
         setTool(tool);
 
+        self.clearMessage = function() {
+            self.message = null;
+        };
+
+        self.clearError = function() {
+            self.error = null;
+        };
+
         self.save = function () {
+            if (self.form.$invalid) {
+                self.error = "Please fix the validation errors before saving.";
+                return;
+            }
+
+            self.saving = true;
+            self.error = null;
+            self.message = null;
+
             var q = self.tool.id
                 ? ToolDataService.data_tool_update(self.tool)
                 : ToolDataService.data_tool_add(self.tool);
 
             q.then(function (res) {
+                self.saving = false;
                 if (isNew) {
+                    self.message = "Tool created successfully!";
                     $location.url("/admin/tool/" + res.data.id);
                 } else {
                     setTool(res.data);
                     self.form.$setPristine();
+                    self.message = "Tool updated successfully!";
                 }
+            }).catch(function (error) {
+                self.saving = false;
+                self.error = "Failed to save tool: " + (error.data?.message || error.statusText || "Unknown error");
+            });
+        };
+
+        self.cancel = function() {
+            if (self.form.$dirty) {
+                var modalInstance = $uibModal.open({
+                    template: '<div class="modal-header">' +
+                              '<h3 class="modal-title">Unsaved Changes</h3>' +
+                              '</div>' +
+                              '<div class="modal-body">' +
+                              '<p>You have unsaved changes. Are you sure you want to leave without saving?</p>' +
+                              '</div>' +
+                              '<div class="modal-footer">' +
+                              '<button class="btn btn-danger" ng-click="$close(true)">Leave Without Saving</button>' +
+                              '<button class="btn btn-default" ng-click="$dismiss()">Cancel</button>' +
+                              '</div>',
+                    size: 'sm'
+                });
+
+                modalInstance.result.then(function () {
+                    $location.url("/admin/tool");
+                });
+            } else {
+                $location.url("/admin/tool");
+            }
+        };
+
+        self.confirmDelete = function() {
+            var modalInstance = $uibModal.open({
+                template: '<div class="modal-header">' +
+                          '<h3 class="modal-title text-danger">Delete Tool</h3>' +
+                          '</div>' +
+                          '<div class="modal-body">' +
+                          '<p>Are you sure you want to delete <strong>' + self.tool.name + '</strong>?</p>' +
+                          '<p class="text-danger">This action cannot be undone.</p>' +
+                          '</div>' +
+                          '<div class="modal-footer">' +
+                          '<button class="btn btn-danger" ng-click="$close(true)">Delete</button>' +
+                          '<button class="btn btn-default" ng-click="$dismiss()">Cancel</button>' +
+                          '</div>',
+                size: 'sm'
+            });
+
+            modalInstance.result.then(function () {
+                self.saving = true;
+                // TODO: Implement delete functionality when ToolDataService.data_tool_delete is available
+                self.error = "Delete functionality not yet implemented in backend.";
+                self.saving = false;
+                // ToolDataService.data_tool_delete(self.tool.id).then(function () {
+                //     $location.url("/admin/tool");
+                // }).catch(function (error) {
+                //     self.saving = false;
+                //     self.error = "Failed to delete tool: " + (error.data?.message || error.statusText || "Unknown error");
+                // });
             });
         };
     }
