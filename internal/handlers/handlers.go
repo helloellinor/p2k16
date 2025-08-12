@@ -103,7 +103,7 @@ func (h *Handler) Home(c *gin.Context) {
 		html += `
                         <span class="badge bg-warning">Demo Mode</span>
                         <p class="mt-2">Running without database connection</p>
-                        <small class="text-muted">Use username "demo", "super", or "foo" with any password to login</small>`
+                        <small class="text-muted">Use "demo" with any password, "super/super", or "foo/foo" to login</small>`
 	} else {
 		html += `
                         <span class="badge bg-success">Online</span>
@@ -159,18 +159,18 @@ func (h *Handler) Login(c *gin.Context) {
 	if h.demoMode {
 		html += `
                         <div class="alert alert-info">
-                            <strong>Demo Mode:</strong> Use username "demo", "super", or "foo" with any password
+                            <strong>Demo Mode:</strong> Use "demo" with any password, "super/super", or "foo/foo"
                         </div>`
 	}
 
 	html += `
-                        <form hx-post="/api/auth/login" hx-target="#login-result">
+                        <form hx-post="/api/auth/login" hx-target="#login-result" method="post" action="/api/auth/login">
                             <div class="mb-3">
                                 <label for="username" class="form-label">Username</label>`
 
 	if h.demoMode {
 		html += `
-                                <input type="text" class="form-control" id="username" name="username" value="demo" required>`
+                                <input type="text" class="form-control" id="username" name="username" value="foo" required>`
 	} else {
 		html += `
                                 <input type="text" class="form-control" id="username" name="username" required>`
@@ -183,7 +183,7 @@ func (h *Handler) Login(c *gin.Context) {
 
 	if h.demoMode {
 		html += `
-                                <input type="password" class="form-control" id="password" name="password" value="password" required>`
+                                <input type="password" class="form-control" id="password" name="password" value="foo" required>`
 	} else {
 		html += `
                                 <input type="password" class="form-control" id="password" name="password" required>`
@@ -373,10 +373,32 @@ func (h *Handler) AuthLogin(c *gin.Context) {
 
 	// Handle demo mode authentication
 	if h.demoMode || h.accountRepo == nil {
-		if username == "demo" || username == "super" || username == "foo" {
+		// Check demo credentials using the same password hashes as the database
+		var isValid bool
+		var accountID int = 1
+		
+		switch username {
+		case "demo":
+			// Allow any password for demo user
+			isValid = true
+		case "super":
+			// Use the actual bcrypt hash from migration for super/super
+			superHash := "$2b$12$B/kxR5O85fN357.fZNUPoOiNblCj7j2lX3/VLajLvuE42OmqsyUTO"
+			account := &models.Account{Password: superHash}
+			isValid = account.ValidatePassword(password)
+			accountID = 2
+		case "foo":
+			// Use the actual bcrypt hash from migration for foo/foo
+			fooHash := "$2b$12$o764MV/jh0HnsAtsEz53L.GfbLwCqZ5jTf3aV2yUAFFCaTrzGCcQm"
+			account := &models.Account{Password: fooHash}
+			isValid = account.ValidatePassword(password)
+			accountID = 3
+		}
+
+		if isValid {
 			// Create a demo account for session
 			account := &models.Account{
-				ID:       1,
+				ID:       accountID,
 				Username: username,
 				Email:    username + "@demo.local",
 			}
@@ -404,7 +426,7 @@ func (h *Handler) AuthLogin(c *gin.Context) {
 		}
 
 		c.Data(http.StatusUnauthorized, "text/html; charset=utf-8",
-			[]byte(`<div class="alert alert-danger">Invalid username or password. In demo mode, use "demo", "super", or "foo" with any password.</div>`))
+			[]byte(`<div class="alert alert-danger">Invalid username or password. In demo mode, use "demo" with any password, "super/super", or "foo/foo".</div>`))
 		return
 	}
 

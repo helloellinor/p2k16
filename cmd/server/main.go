@@ -33,7 +33,7 @@ func main() {
 	if err != nil {
 		log.Printf("Database connection failed: %v", err)
 		log.Printf("Starting in DEMO MODE - no database required")
-		log.Printf("Use username 'demo' or 'super' with any password to login")
+		log.Printf("Use 'demo' with any password, 'super/super', or 'foo/foo' to login")
 		
 		// Initialize demo handlers with nil repositories
 		handler = handlers.NewHandler(nil, nil, nil, nil, nil, nil)
