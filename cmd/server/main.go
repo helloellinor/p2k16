@@ -18,7 +18,7 @@ func main() {
 	// Database configuration - matches the existing setup
 	dbConfig := database.Config{
 		Host:     getEnv("DB_HOST", "localhost"),
-	Port:     getEnvInt("DB_PORT", 2016),
+		Port:     getEnvInt("DB_PORT", 2016),
 		User:     getEnv("DB_USER", "p2k16-web"),
 		Password: getEnv("DB_PASSWORD", "p2k16-web"),
 		DBName:   getEnv("DB_NAME", "p2k16"),
