@@ -84,7 +84,7 @@ This document defines the design system for the P2K16 hackerspace management app
 
 ### Font Stack
 ```css
-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+font-family: "Ubuntu", -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
 ```
 
 ### Type Scale
