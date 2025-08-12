@@ -131,13 +131,17 @@ type StripePayment struct {
 
 // ToolDescription represents a tool in the hackerspace
 type ToolDescription struct {
-	ID        int           `json:"id"`
-	Name      string        `json:"name"`
-	Type      string        `json:"type"`
-	CreatedAt time.Time     `json:"created_at"`
-	UpdatedAt time.Time     `json:"updated_at"`
-	CreatedBy sql.NullInt64 `json:"created_by"`
-	UpdatedBy sql.NullInt64 `json:"updated_by"`
+	ID          int            `json:"id"`
+	Name        string         `json:"name"`
+	Description sql.NullString `json:"description"`
+	CircleID    sql.NullInt64  `json:"circle_id"`
+	CreatedAt   time.Time      `json:"created_at"`
+	UpdatedAt   time.Time      `json:"updated_at"`
+	CreatedBy   sql.NullInt64  `json:"created_by"`
+	UpdatedBy   sql.NullInt64  `json:"updated_by"`
+	
+	// Relationships
+	Circle      *Circle        `json:"circle,omitempty"`
 }
 
 // ToolCheckout represents a tool checkout record

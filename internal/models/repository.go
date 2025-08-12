@@ -264,8 +264,11 @@ func NewToolRepository(db *sql.DB) *ToolRepository {
 // GetAllTools retrieves all tool descriptions
 func (r *ToolRepository) GetAllTools() ([]ToolDescription, error) {
 	query := `
-		SELECT id, name, type, created_at, updated_at, created_by, updated_by
-		FROM tool_description ORDER BY name`
+		SELECT td.id, td.name, td.description, td.circle, td.created_at, td.updated_at, td.created_by, td.updated_by,
+		       c.id, c.name, c.description
+		FROM tool_description td
+		LEFT JOIN circle c ON td.circle = c.id
+		ORDER BY td.name`
 
 	rows, err := r.db.Query(query)
 	if err != nil {
@@ -276,13 +279,28 @@ func (r *ToolRepository) GetAllTools() ([]ToolDescription, error) {
 	var tools []ToolDescription
 	for rows.Next() {
 		var tool ToolDescription
+		var circle Circle
+		var circleID sql.NullInt64
+		var circleName sql.NullString
+		var circleDesc sql.NullString
+		
 		err := rows.Scan(
-			&tool.ID, &tool.Name, &tool.Type,
+			&tool.ID, &tool.Name, &tool.Description, &tool.CircleID,
 			&tool.CreatedAt, &tool.UpdatedAt, &tool.CreatedBy, &tool.UpdatedBy,
+			&circleID, &circleName, &circleDesc,
 		)
 		if err != nil {
 			return nil, err
 		}
+		
+		// Set the circle relationship if it exists
+		if circleID.Valid {
+			circle.ID = int(circleID.Int64)
+			circle.Name = circleName.String
+			circle.Description = circleDesc.String
+			tool.Circle = &circle
+		}
+		
 		tools = append(tools, tool)
 	}
 
@@ -292,17 +310,34 @@ func (r *ToolRepository) GetAllTools() ([]ToolDescription, error) {
 // FindToolByID retrieves a tool by ID
 func (r *ToolRepository) FindToolByID(id int) (*ToolDescription, error) {
 	query := `
-		SELECT id, name, type, created_at, updated_at, created_by, updated_by
-		FROM tool_description WHERE id = $1`
+		SELECT td.id, td.name, td.description, td.circle, td.created_at, td.updated_at, td.created_by, td.updated_by,
+		       c.id, c.name, c.description
+		FROM tool_description td
+		LEFT JOIN circle c ON td.circle = c.id
+		WHERE td.id = $1`
 
 	var tool ToolDescription
+	var circle Circle
+	var circleID sql.NullInt64
+	var circleName sql.NullString
+	var circleDesc sql.NullString
+	
 	err := r.db.QueryRow(query, id).Scan(
-		&tool.ID, &tool.Name, &tool.Type,
+		&tool.ID, &tool.Name, &tool.Description, &tool.CircleID,
 		&tool.CreatedAt, &tool.UpdatedAt, &tool.CreatedBy, &tool.UpdatedBy,
+		&circleID, &circleName, &circleDesc,
 	)
 
 	if err != nil {
 		return nil, err
+	}
+	
+	// Set the circle relationship if it exists
+	if circleID.Valid {
+		circle.ID = int(circleID.Int64)
+		circle.Name = circleName.String
+		circle.Description = circleDesc.String
+		tool.Circle = &circle
 	}
 
 	return &tool, nil
@@ -360,7 +395,7 @@ func (r *ToolRepository) GetActiveCheckouts() ([]ToolCheckout, error) {
 	query := `
 		SELECT tc.id, tc.tool, tc.account, tc.checkout_at, tc.checkin_at,
 		       tc.created_at, tc.updated_at, tc.created_by, tc.updated_by,
-		       td.name, td.type,
+		       td.name, td.description,
 		       a.username, a.name
 		FROM tool_checkout tc
 		JOIN tool_description td ON tc.tool = td.id
@@ -382,20 +417,111 @@ func (r *ToolRepository) GetActiveCheckouts() ([]ToolCheckout, error) {
 		err := rows.Scan(
 			&checkout.ID, &checkout.ToolID, &checkout.AccountID, &checkout.CheckoutAt, &checkout.CheckinAt,
 			&checkout.CreatedAt, &checkout.UpdatedAt, &checkout.CreatedBy, &checkout.UpdatedBy,
-			&tool.Name, &tool.Type,
+			&tool.Name, &tool.Description,
 			&account.Username, &account.Name,
 		)
 		if err != nil {
 			return nil, err
 		}
-		tool.ID = checkout.ToolID
-		account.ID = checkout.AccountID
+		
 		checkout.Tool = &tool
 		checkout.Account = &account
 		checkouts = append(checkouts, checkout)
 	}
 
 	return checkouts, nil
+}
+
+// CreateTool creates a new tool description
+func (r *ToolRepository) CreateTool(name, description string, circleID *int, userID int) (*ToolDescription, error) {
+	query := `
+		INSERT INTO tool_description (name, description, circle, created_at, updated_at, created_by, updated_by)
+		VALUES ($1, $2, $3, NOW(), NOW(), $4, $4)
+		RETURNING id, created_at, updated_at`
+
+	var tool ToolDescription
+	tool.Name = name
+	if description != "" {
+		tool.Description = sql.NullString{String: description, Valid: true}
+	}
+	if circleID != nil {
+		tool.CircleID = sql.NullInt64{Int64: int64(*circleID), Valid: true}
+	}
+	tool.CreatedBy = sql.NullInt64{Int64: int64(userID), Valid: true}
+	tool.UpdatedBy = sql.NullInt64{Int64: int64(userID), Valid: true}
+
+	err := r.db.QueryRow(query, name, description, circleID, userID).Scan(
+		&tool.ID, &tool.CreatedAt, &tool.UpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return &tool, nil
+}
+
+// UpdateTool updates an existing tool description
+func (r *ToolRepository) UpdateTool(id int, name, description string, circleID *int, userID int) (*ToolDescription, error) {
+	query := `
+		UPDATE tool_description 
+		SET name = $2, description = $3, circle = $4, updated_at = NOW(), updated_by = $5
+		WHERE id = $1
+		RETURNING created_at, updated_at, created_by`
+
+	var tool ToolDescription
+	tool.ID = id
+	tool.Name = name
+	if description != "" {
+		tool.Description = sql.NullString{String: description, Valid: true}
+	}
+	if circleID != nil {
+		tool.CircleID = sql.NullInt64{Int64: int64(*circleID), Valid: true}
+	}
+	tool.UpdatedBy = sql.NullInt64{Int64: int64(userID), Valid: true}
+
+	err := r.db.QueryRow(query, id, name, description, circleID, userID).Scan(
+		&tool.CreatedAt, &tool.UpdatedAt, &tool.CreatedBy,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return &tool, nil
+}
+
+// DeleteTool deletes a tool description
+func (r *ToolRepository) DeleteTool(id int) error {
+	// First check if there are any active checkouts for this tool
+	checkQuery := `
+		SELECT COUNT(*) FROM tool_checkout 
+		WHERE tool = $1 AND checkin_at IS NULL`
+	
+	var count int
+	err := r.db.QueryRow(checkQuery, id).Scan(&count)
+	if err != nil {
+		return err
+	}
+	
+	if count > 0 {
+		return fmt.Errorf("cannot delete tool: it has active checkouts")
+	}
+
+	deleteQuery := `DELETE FROM tool_description WHERE id = $1`
+	result, err := r.db.Exec(deleteQuery, id)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("tool not found")
+	}
+
+	return nil
 }
 
 // EventRepository handles database operations for events

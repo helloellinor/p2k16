@@ -1,47 +1,172 @@
 <p2k16-header active="admin"></p2k16-header>
 
 <div class="container">
-  <h1>
-    {{ ctrl.title }}
-    <small>
-      <a href="#!admin/tool">All tools</a>
-    </small>
-  </h1>
+  <div class="row">
+    <div class="col-md-8 col-md-offset-2">
+      <h1>
+        {{ ctrl.title }}
+        <small>
+          <a href="#!admin/tool">← Back to all tools</a>
+        </small>
+      </h1>
 
-  <div class="form-horizontal" ng-form="ctrl.form">
-    <div class="form-group">
-      <label for="name" class="col-sm-2">
-        Name
-      </label>
-      <div class="col-sm-10">
-        <input class="form-control" type="text" name="name" id="name" placeholder="name"
-               ng-model="ctrl.tool.name"/>
-      </div>
-    </div>
-    <div class="form-group">
-      <label for="description" class="col-sm-2">
-        Name
-      </label>
-      <div class="col-sm-10">
-        <input class="form-control" type="text" name="description" id="description" placeholder="Description"
-               ng-model="ctrl.tool.description"/>
-      </div>
-    </div>
-    <div class="form-group">
-      <label for="circle" class="col-sm-2">
-        Circle
-      </label>
-      <div class="col-sm-10">
-        <input class="form-control" type="text" name="circle" id="circle" placeholder="Circle name"
-               ng-model="ctrl.tool.circle"/>
-      </div>
-    </div>
-    <div class="form-group">
-      <div class="col-sm-12 text-right">
-        <button class="btn btn-success" ng-click="ctrl.save()">
-          {{ (ctrl.tool.id ? 'Update' : 'Create') }}
+      <!-- Success/Error Messages -->
+      <div ng-if="ctrl.message" class="alert alert-success alert-dismissible" role="alert">
+        <button type="button" class="close" ng-click="ctrl.clearMessage()">
+          <span aria-hidden="true">&times;</span>
         </button>
+        {{ ctrl.message }}
       </div>
+
+      <div ng-if="ctrl.error" class="alert alert-danger alert-dismissible" role="alert">
+        <button type="button" class="close" ng-click="ctrl.clearError()">
+          <span aria-hidden="true">&times;</span>
+        </button>
+        {{ ctrl.error }}
+      </div>
+
+      <!-- Main Form Panel -->
+      <div class="panel panel-default">
+        <div class="panel-heading">
+          <h3 class="panel-title">
+            <i class="fa fa-tools" aria-hidden="true"></i>
+            {{ ctrl.isNew ? 'Create New Tool' : 'Edit Tool' }}
+          </h3>
+        </div>
+        <div class="panel-body">
+          <form class="form-horizontal" name="ctrl.form" ng-submit="ctrl.save()" novalidate>
+            
+            <!-- Tool Name -->
+            <div class="form-group" ng-class="{'has-error': ctrl.form.name.$invalid && ctrl.form.name.$touched}">
+              <label for="name" class="col-sm-3 control-label">
+                Tool Name <span class="text-danger">*</span>
+              </label>
+              <div class="col-sm-9">
+                <input class="form-control" 
+                       type="text" 
+                       name="name" 
+                       id="name" 
+                       placeholder="Enter tool name (e.g., 3D Printer, Laser Cutter)"
+                       ng-model="ctrl.tool.name"
+                       ng-required="true"
+                       ng-minlength="2"
+                       ng-maxlength="100"/>
+                <div ng-if="ctrl.form.name.$invalid && ctrl.form.name.$touched" class="help-block">
+                  <span ng-if="ctrl.form.name.$error.required">Tool name is required</span>
+                  <span ng-if="ctrl.form.name.$error.minlength">Tool name must be at least 2 characters</span>
+                  <span ng-if="ctrl.form.name.$error.maxlength">Tool name cannot exceed 100 characters</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Tool Description -->
+            <div class="form-group" ng-class="{'has-error': ctrl.form.description.$invalid && ctrl.form.description.$touched}">
+              <label for="description" class="col-sm-3 control-label">
+                Description <span class="text-danger">*</span>
+              </label>
+              <div class="col-sm-9">
+                <textarea class="form-control" 
+                          name="description" 
+                          id="description" 
+                          rows="3"
+                          placeholder="Describe the tool, its capabilities, and usage guidelines"
+                          ng-model="ctrl.tool.description"
+                          ng-required="true"
+                          ng-minlength="10"
+                          ng-maxlength="500"></textarea>
+                <div ng-if="ctrl.form.description.$invalid && ctrl.form.description.$touched" class="help-block">
+                  <span ng-if="ctrl.form.description.$error.required">Tool description is required</span>
+                  <span ng-if="ctrl.form.description.$error.minlength">Description must be at least 10 characters</span>
+                  <span ng-if="ctrl.form.description.$error.maxlength">Description cannot exceed 500 characters</span>
+                </div>
+                <div class="help-block">
+                  <small class="text-muted">{{ ctrl.tool.description ? ctrl.tool.description.length : 0 }}/500 characters</small>
+                </div>
+              </div>
+            </div>
+
+            <!-- Circle -->
+            <div class="form-group" ng-class="{'has-error': ctrl.form.circle.$invalid && ctrl.form.circle.$touched}">
+              <label for="circle" class="col-sm-3 control-label">
+                Managing Circle <span class="text-danger">*</span>
+              </label>
+              <div class="col-sm-9">
+                <input class="form-control" 
+                       type="text" 
+                       name="circle" 
+                       id="circle" 
+                       placeholder="Enter the circle responsible for this tool"
+                       ng-model="ctrl.tool.circle"
+                       ng-required="true"
+                       ng-minlength="2"
+                       ng-maxlength="50"/>
+                <div ng-if="ctrl.form.circle.$invalid && ctrl.form.circle.$touched" class="help-block">
+                  <span ng-if="ctrl.form.circle.$error.required">Managing circle is required</span>
+                  <span ng-if="ctrl.form.circle.$error.minlength">Circle name must be at least 2 characters</span>
+                  <span ng-if="ctrl.form.circle.$error.maxlength">Circle name cannot exceed 50 characters</span>
+                </div>
+                <div class="help-block">
+                  <small class="text-muted">The circle that manages access and maintenance for this tool</small>
+                </div>
+              </div>
+            </div>
+
+            <!-- Form Actions -->
+            <div class="form-group">
+              <div class="col-sm-offset-3 col-sm-9">
+                <button type="submit" 
+                        class="btn btn-success" 
+                        ng-disabled="ctrl.form.$invalid || ctrl.saving">
+                  <span ng-if="ctrl.saving">
+                    <i class="fa fa-spinner fa-spin"></i> 
+                    {{ ctrl.isNew ? 'Creating...' : 'Updating...' }}
+                  </span>
+                  <span ng-if="!ctrl.saving">
+                    <i class="fa fa-save"></i>
+                    {{ ctrl.isNew ? 'Create Tool' : 'Update Tool' }}
+                  </span>
+                </button>
+                
+                <button type="button" 
+                        class="btn btn-default" 
+                        ng-click="ctrl.cancel()"
+                        ng-disabled="ctrl.saving">
+                  <i class="fa fa-times"></i> Cancel
+                </button>
+
+                <button type="button" 
+                        class="btn btn-danger pull-right" 
+                        ng-if="!ctrl.isNew"
+                        ng-click="ctrl.confirmDelete()"
+                        ng-disabled="ctrl.saving">
+                  <i class="fa fa-trash"></i> Delete Tool
+                </button>
+              </div>
+            </div>
+
+          </form>
+        </div>
+      </div>
+
+      <!-- Tool Info Panel (for existing tools) -->
+      <div class="panel panel-info" ng-if="!ctrl.isNew && ctrl.tool.id">
+        <div class="panel-heading">
+          <h3 class="panel-title">
+            <i class="fa fa-info-circle"></i> Tool Information
+          </h3>
+        </div>
+        <div class="panel-body">
+          <dl class="dl-horizontal">
+            <dt>Tool ID:</dt>
+            <dd>{{ ctrl.tool.id }}</dd>
+            <dt>Created:</dt>
+            <dd>{{ ctrl.tool.createdAt | date:'medium' }}</dd>
+            <dt>Last Modified:</dt>
+            <dd>{{ ctrl.tool.updatedAt | date:'medium' }}</dd>
+          </dl>
+        </div>
+      </div>
+
     </div>
   </div>
 </div>
