@@ -1,12 +1,107 @@
-# P2K16 Development Environment Setup Guide
+# P2K16 - Makerspace Management System
 
-This comprehensive guide provides step-by-step instructions for setting up and running the P2K16 project. It covers prerequisites, installation procedures, environment configuration, and application deployment for both Linux (Ubuntu/Debian) and macOS platforms. Each tool and process is thoroughly documented to ensure a smooth development experience.
+P2K16 is a comprehensive membership and resource management system for makerspaces, featuring tool checkout, access control, badge management, and payment processing.
 
 ---
 
-Quick start: see docs/LOCAL_DEV.md for an end-to-end local setup (macOS + fish) including Docker/Postgres, Flyway, and running both apps.
+## 🚀 **MIGRATION IN PROGRESS**: Python/Flask → Go + HTMX
 
-**Troubleshooting Go login/database errors?** See the troubleshooting section in docs/LOCAL_DEV.md for fixes to common schema and migration issues (e.g., missing columns like created_by).
+**P2K16 is actively migrating to a modern Go + HTMX architecture!**
+
+### 📋 Migration Hub
+➡️ **[Complete Migration Documentation](docs/migration/README.md)** ⬅️
+
+**Quick Links:**
+- **[📋 Transition Roadmap](docs/migration/TRANSITION_ROADMAP.md)** - Complete 5-phase migration plan
+- **[📊 Migration Status](docs/migration/MIGRATION_STATUS.md)** - Real-time progress tracking  
+- **[🛠️ Development Setup](docs/development/LOCAL_DEV.md)** - Local development environment
+- **[⚙️ Go Development Guide](docs/go/SETUP.md)** - Go-specific setup and patterns
+
+### Current Status
+- **Progress**: 25% Complete (Phase 1: Foundation)
+- **Target**: 20-week migration timeline
+- **Development**: Both Python and Go systems running in parallel
+- **Database**: Shared PostgreSQL, zero-downtime migration strategy
+
+---
+
+Quick start: see [docs/development/LOCAL_DEV.md](docs/development/LOCAL_DEV.md) for an end-to-end local setup (macOS + fish) including Docker/Postgres, Flyway, and running both apps.
+
+**Troubleshooting Go login/database errors?** See [docs/development/TROUBLESHOOTING.md](docs/development/TROUBLESHOOTING.md) for fixes to common schema and migration issues (e.g., missing columns like created_by).
+
+---
+
+## 🚀 Quick Start
+
+### For Migration Development
+```bash
+# Set up parallel development environment
+make dev-migration
+
+# Terminal 1: Legacy Python system (:5000)
+source .settings.fish && p2k16-run-web
+
+# Terminal 2: New Go system (:8081) 
+make run PORT=8081
+
+# Access both systems:
+# Python: http://localhost:5000
+# Go:     http://localhost:8081
+```
+
+### For Go Development Only
+```bash
+# Set up Go development environment
+make dev-setup
+
+# Run in demo mode (no database required)
+make demo
+
+# Or run with database
+make run
+```
+
+---
+
+## 📁 Project Structure
+
+### Migration-Focused Organization
+```
+p2k16/
+├── docs/
+│   ├── migration/          # 🚀 Migration documentation hub
+│   │   ├── README.md       #   └─ Migration central hub
+│   │   ├── TRANSITION_ROADMAP.md  #   └─ Complete migration plan  
+│   │   ├── MIGRATION_STATUS.md    #   └─ Real-time progress tracking
+│   │   ├── phases/         #   └─ Phase-specific guides
+│   │   ├── API_COMPATIBILITY.md   #   └─ API compatibility testing
+│   │   └── TESTING.md      #   └─ Migration testing strategy
+│   ├── development/        # 🛠️ Development setup guides
+│   │   └── LOCAL_DEV.md    #   └─ Local development setup
+│   ├── go/                 # 🔧 Go-specific documentation
+│   │   ├── README.md       #   └─ Go project documentation  
+│   │   └── SETUP.md        #   └─ Go development guide
+│   └── legacy/             # 📜 Python/Flask documentation
+├── cmd/                    # 🚀 Go application entry points
+│   ├── server/            #   └─ Main Go web server
+│   ├── demo/              #   └─ Demo mode (no database)
+│   └── test/              #   └─ Test utilities
+├── internal/              # 🔧 Go private application code
+│   ├── handlers/          #   └─ HTTP handlers (controllers)
+│   ├── models/            #   └─ Data models and repositories
+│   ├── middleware/        #   └─ HTTP middleware
+│   └── database/          #   └─ Database connection
+├── web/                   # 🐍 Legacy Python/Flask application
+├── static/                # 🎨 Static assets (CSS, JS, images)
+├── templates/             # 📄 Go HTML templates
+└── Makefile              # 🔨 Build automation
+```
+
+### Documentation Navigation
+- **🚀 Migration Focus**: Start with [docs/migration/README.md](docs/migration/README.md)
+- **🛠️ Development**: See [docs/development/LOCAL_DEV.md](docs/development/LOCAL_DEV.md)
+- **🔧 Go Development**: See [docs/go/SETUP.md](docs/go/SETUP.md)
+- **📜 Legacy Python**: See [docs/legacy/](docs/legacy/) for Python-specific docs
 
 ---
 
