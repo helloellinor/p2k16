@@ -1,6 +1,6 @@
 # Go + HTMX P2K16 Makefile
 
-.PHONY: build run test clean dev demo help
+.PHONY: build run test clean dev demo dev-python dev-migration help
 
 # Defaults for runtime configuration (override on the command line)
 DB_HOST ?= localhost
@@ -61,18 +61,44 @@ fmt:
 lint:
 	golangci-lint run
 
+# Migration support targets
+
+# Run Python Flask development server
+dev-python:
+	@echo "Starting Python Flask server on :5000..."
+	@echo "Make sure you've run: source .settings.fish && p2k16-run-web"
+	@echo "This target is for documentation - run the command above manually"
+
+# Run both systems for migration testing
+dev-migration:
+	@echo "=== Migration Development Setup ==="
+	@echo "This will help you run both systems in parallel for testing"
+	@echo ""
+	@echo "Terminal 1 (Python Flask on :5000):"
+	@echo "  source .settings.fish"
+	@echo "  p2k16-run-web"
+	@echo ""
+	@echo "Terminal 2 (Go server on :8081):"
+	@echo "  make run PORT=8081"
+	@echo ""
+	@echo "Then test both systems:"
+	@echo "  Python: http://localhost:5000"
+	@echo "  Go:     http://localhost:8081"
+
 # Show help
 help:
 	@echo "Available targets:"
-	@echo "  build      - Build the application"
-	@echo "  build-demo - Build demo application"
-	@echo "  run        - Build and run the application"
-	@echo "  demo       - Build and run demo mode (no database)"
-	@echo "  dev        - Run in development mode"
-	@echo "  test       - Run tests"
-	@echo "  test-auth  - Run authentication test utility"
-	@echo "  clean      - Clean build artifacts"
-	@echo "  deps       - Download and tidy dependencies"
-	@echo "  fmt        - Format code"
-	@echo "  lint       - Lint code"
-	@echo "  help       - Show this help"
+	@echo "  build         - Build the application"
+	@echo "  build-demo    - Build demo application"
+	@echo "  run           - Build and run the application"
+	@echo "  demo          - Build and run demo mode (no database)"
+	@echo "  dev           - Run in development mode"
+	@echo "  dev-python    - Instructions for Python development server"
+	@echo "  dev-migration - Instructions for parallel development setup"
+	@echo "  test          - Run tests"
+	@echo "  test-auth     - Run authentication test utility"
+	@echo "  clean         - Clean build artifacts"
+	@echo "  deps          - Download and tidy dependencies"
+	@echo "  fmt           - Format code"
+	@echo "  lint          - Lint code"
+	@echo "  help          - Show this help"
