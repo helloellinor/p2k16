@@ -163,7 +163,17 @@
     
     <!-- Main content -->
     <main class="p2k16-container {{if .narrow}}p2k16-container--narrow{{end}} p2k16-mt-8">
-        {{template "content" .}}
+        {{if eq .content.template "home"}}
+            {{template "home" .}}
+        {{else if eq .content.template "login"}}
+            {{template "login" .}}
+        {{else if eq .content.template "dashboard"}}
+            {{template "dashboard" .}}
+        {{else if eq .content.template "profile"}}
+            {{template "profile" .}}
+        {{else}}
+            {{template "content" .}}
+        {{end}}
     </main>
     
     <!-- Footer -->

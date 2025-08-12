@@ -1,0 +1,35 @@
+{{define "dashboard"}}
+    <h1>Dashboard</h1>
+    
+    <div class="p2k16-grid p2k16-grid--3-col p2k16-mt-8">
+        <div class="p2k16-card">
+            <div class="p2k16-card__header">
+                <h5 class="p2k16-card__title">Your Badges</h5>
+            </div>
+            <div class="p2k16-card__body">
+                <div id="user-badges">
+                    <button class="p2k16-button p2k16-button--primary" hx-get="/api/user/badges" hx-target="#user-badges">Load Badges</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="p2k16-card">
+            <div class="p2k16-card__header">
+                <h5 class="p2k16-card__title">Recent Activity</h5>
+            </div>
+            <div class="p2k16-card__body">
+                <p class="p2k16-text--muted">No recent activity</p>
+            </div>
+        </div>
+        
+        <div class="p2k16-card">
+            <div class="p2k16-card__header">
+                <h5 class="p2k16-card__title">Quick Actions</h5>
+            </div>
+            <div class="p2k16-card__body">
+                <a href="/profile" class="p2k16-button p2k16-button--primary p2k16-button--full p2k16-mb-4">Edit Profile</a>
+                <a href="/" class="p2k16-button p2k16-button--secondary p2k16-button--full">Back to Home</a>
+            </div>
+        </div>
+    </div>
+{{end}}

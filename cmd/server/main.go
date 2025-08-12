@@ -5,13 +5,13 @@ import (
 	"log"
 	"os"
 	"strconv"
-	"strings"
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
 	"github.com/helloellinor/p2k16/internal/database"
 	"github.com/helloellinor/p2k16/internal/handlers"
+	"github.com/helloellinor/p2k16/internal/logging"
 	"github.com/helloellinor/p2k16/internal/middleware"
 	"github.com/helloellinor/p2k16/internal/models"
 )
@@ -31,32 +31,22 @@ func main() {
 	db, err := database.NewConnection(dbConfig)
 	var handler *handlers.Handler
 	var demoMode bool
+	var logger *logging.Logger
 	
 	if err != nil {
-		fmt.Println("\n" + strings.Repeat("=", 60))
-		fmt.Println("⚠️  P2K16 SERVER - FALLBACK TO DEMO MODE")
-		fmt.Println(strings.Repeat("=", 60))
-		fmt.Printf("❌ Database connection failed: %v\n", err)
-		fmt.Println("🎭 Falling back to DEMO MODE - no database required")
-		fmt.Println("🔑 Demo logins available:")
-		fmt.Println("   • demo/password")
-		fmt.Println("   • super/super") 
-		fmt.Println("   • foo/foo")
-		fmt.Println("⚠️  Note: All data operations will be simulated")
-		fmt.Println(strings.Repeat("=", 60))
+		// Database connection failed - use demo mode
+		logger = logging.DemoLogger
+		logger.LogDatabaseFallback(err)
 		
 		// Initialize demo handlers with nil repositories
 		handler = handlers.NewHandler(nil, nil, nil, nil, nil, nil)
 		demoMode = true
 	} else {
-		fmt.Println("\n" + strings.Repeat("=", 60))
-		fmt.Println("🚀 P2K16 SERVER - PRODUCTION MODE")
-		fmt.Println(strings.Repeat("=", 60))
-		fmt.Println("✅ Database connection successful")
-		fmt.Printf("🗄️  Connected to: %s@%s:%d/%s\n", dbConfig.User, dbConfig.Host, dbConfig.Port, dbConfig.DBName)
-		fmt.Println("💾 All data operations will be persisted to database")
-		fmt.Println(strings.Repeat("=", 60))
+		// Database connection successful - use production mode
+		logger = logging.ServerLogger
 		defer db.Close()
+
+		logging.LogSuccess("DATABASE CONNECTION", fmt.Sprintf("Connected to: %s@%s:%d/%s", dbConfig.User, dbConfig.Host, dbConfig.Port, dbConfig.DBName))
 
 		// Initialize repositories
 		accountRepo := models.NewAccountRepository(db.DB)
@@ -81,6 +71,9 @@ func main() {
 
 	// Serve static files
 	r.Static("/styles", "./styles")
+
+	// Load templates
+	r.LoadHTMLGlob("cmd/server/templates/*.html")
 
 	// Session middleware
 	sessionSecret := getEnv("SESSION_SECRET", "p2k16-secret-key-change-in-production")
@@ -147,16 +140,21 @@ func main() {
 	// Start server
 	port := getEnv("PORT", "8080")
 	
-	if demoMode {
-		fmt.Printf("🌐 Demo server starting on http://localhost:%s\n", port)
-		fmt.Println("📋 Available features: Dashboard, Profile Management, Badge System")
-	} else {
-		fmt.Printf("🌐 Production server starting on http://localhost:%s\n", port)
-		fmt.Println("📋 Full feature set available with database persistence")
+	// Log startup with enhanced formatting
+	features := []string{
+		"User authentication",
+		"Dashboard with badges",
+		"Profile management (password change, profile update)",
+		"Member listing",
+		"Badge system",
+		"Tool management",
+		"Session management with expiration",
 	}
-	fmt.Println("🚀 Server starting...")
+	
+	logger.LogStartup("production", port, features)
 
 	if err := r.Run(":" + port); err != nil {
+		logging.LogError("SERVER STARTUP", fmt.Sprintf("Failed to start server: %v", err))
 		log.Fatalf("Failed to start server: %v", err)
 	}
 }
