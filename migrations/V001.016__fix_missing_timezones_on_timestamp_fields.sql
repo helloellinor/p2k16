@@ -3,9 +3,9 @@ DECLARE
     ref CURSOR FOR
     SELECT *
     FROM information_schema.columns c
-    WHERE c.table_schema = 'public'
-          AND c.data_type = 'timestamp without time zone'
-          AND c.table_name NOT IN ('schema_version')
+  WHERE c.table_schema = 'public'
+      AND c.data_type = 'timestamp without time zone'
+      AND c.table_name NOT IN ('schema_version', 'flyway_schema_history')
     order by c.table_schema, c.table_name, c.column_name;
   sql TEXT;
 BEGIN

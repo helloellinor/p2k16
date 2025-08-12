@@ -3,9 +3,9 @@
 set -e
 set -x
 
-self="${0##*/}"
-bin=${0%/*}
-basedir="${bin%/*}"
+# Resolve script directory and project root robustly
+bin="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+basedir="$(cd "$bin/.." && pwd)"
 
 if [[ ! -d env ]]
 then
@@ -15,7 +15,13 @@ fi
 env/bin/pip install -r requirements.txt
 env/bin/pip install -e web
 
-flyway migrate
+# Run DB migrations using the bundled Flyway and explicit flags
+"$bin/flyway" \
+    -url="jdbc:postgresql://localhost:2016/p2k16" \
+    -user=postgres \
+    -password=postgres \
+    -locations="filesystem:$basedir/migrations" \
+    migrate
 
 cd web
 bower install

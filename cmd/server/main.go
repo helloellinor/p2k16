@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"os"
+	"strconv"
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
@@ -17,7 +18,7 @@ func main() {
 	// Database configuration - matches the existing setup
 	dbConfig := database.Config{
 		Host:     getEnv("DB_HOST", "localhost"),
-		Port:     5432,
+	Port:     getEnvInt("DB_PORT", 2016),
 		User:     getEnv("DB_USER", "p2k16-web"),
 		Password: getEnv("DB_PASSWORD", "p2k16-web"),
 		DBName:   getEnv("DB_NAME", "p2k16"),
@@ -100,6 +101,15 @@ func main() {
 func getEnv(key, defaultValue string) string {
 	if value := os.Getenv(key); value != "" {
 		return value
+	}
+	return defaultValue
+}
+
+func getEnvInt(key string, defaultValue int) int {
+	if value := os.Getenv(key); value != "" {
+		if i, err := strconv.Atoi(value); err == nil {
+			return i
+		}
 	}
 	return defaultValue
 }
