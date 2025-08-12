@@ -42,6 +42,25 @@ func RequireAuth(accountRepo *models.AccountRepository) gin.HandlerFunc {
 			return
 		}
 
+		// In demo mode (no accountRepo), just use session info
+		if accountRepo == nil {
+			username := session.Get(UsernameKey)
+			if username != nil {
+				user := &AuthenticatedUser{
+					ID:       userID.(int),
+					Username: username.(string),
+					Account: &models.Account{
+						ID:       userID.(int),
+						Username: username.(string),
+						Email:    username.(string) + "@demo.local",
+					},
+				}
+				c.Set("user", user)
+				c.Next()
+				return
+			}
+		}
+
 		// Load user account and add to context
 		account, err := accountRepo.FindByID(userID.(int))
 		if err != nil {
@@ -79,15 +98,32 @@ func OptionalAuth(accountRepo *models.AccountRepository) gin.HandlerFunc {
 		userID := session.Get(UserIDKey)
 
 		if userID != nil {
-			// Try to load user account
-			account, err := accountRepo.FindByID(userID.(int))
-			if err == nil {
-				user := &AuthenticatedUser{
-					ID:       account.ID,
-					Username: account.Username,
-					Account:  account,
+			// In demo mode (no accountRepo), just use session info
+			if accountRepo == nil {
+				username := session.Get(UsernameKey)
+				if username != nil {
+					user := &AuthenticatedUser{
+						ID:       userID.(int),
+						Username: username.(string),
+						Account: &models.Account{
+							ID:       userID.(int),
+							Username: username.(string),
+							Email:    username.(string) + "@demo.local",
+						},
+					}
+					c.Set("user", user)
 				}
-				c.Set("user", user)
+			} else {
+				// Try to load user account
+				account, err := accountRepo.FindByID(userID.(int))
+				if err == nil {
+					user := &AuthenticatedUser{
+						ID:       account.ID,
+						Username: account.Username,
+						Account:  account,
+					}
+					c.Set("user", user)
+				}
 			}
 		}
 

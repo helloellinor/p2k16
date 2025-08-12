@@ -252,3 +252,533 @@ func (r *BadgeRepository) FindBadgeDescriptionByTitle(title string) (*BadgeDescr
 
 	return &desc, nil
 }
+// ToolRepository handles database operations for tools
+type ToolRepository struct {
+	db *sql.DB
+}
+
+func NewToolRepository(db *sql.DB) *ToolRepository {
+	return &ToolRepository{db: db}
+}
+
+// GetAllTools retrieves all tool descriptions
+func (r *ToolRepository) GetAllTools() ([]ToolDescription, error) {
+	query := `
+		SELECT id, name, type, created_at, updated_at, created_by, updated_by
+		FROM tool_description ORDER BY name`
+
+	rows, err := r.db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var tools []ToolDescription
+	for rows.Next() {
+		var tool ToolDescription
+		err := rows.Scan(
+			&tool.ID, &tool.Name, &tool.Type,
+			&tool.CreatedAt, &tool.UpdatedAt, &tool.CreatedBy, &tool.UpdatedBy,
+		)
+		if err != nil {
+			return nil, err
+		}
+		tools = append(tools, tool)
+	}
+
+	return tools, nil
+}
+
+// FindToolByID retrieves a tool by ID
+func (r *ToolRepository) FindToolByID(id int) (*ToolDescription, error) {
+	query := `
+		SELECT id, name, type, created_at, updated_at, created_by, updated_by
+		FROM tool_description WHERE id = $1`
+
+	var tool ToolDescription
+	err := r.db.QueryRow(query, id).Scan(
+		&tool.ID, &tool.Name, &tool.Type,
+		&tool.CreatedAt, &tool.UpdatedAt, &tool.CreatedBy, &tool.UpdatedBy,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &tool, nil
+}
+
+// CheckoutTool creates a tool checkout record
+func (r *ToolRepository) CheckoutTool(toolID int, accountID int) (*ToolCheckout, error) {
+	query := `
+		INSERT INTO tool_checkout (tool, account, checkout_at, created_at, updated_at, created_by, updated_by)
+		VALUES ($1, $2, NOW(), NOW(), NOW(), $2, $2)
+		RETURNING id, checkout_at, created_at, updated_at`
+
+	var checkout ToolCheckout
+	checkout.ToolID = toolID
+	checkout.AccountID = accountID
+	checkout.CreatedBy = sql.NullInt64{Int64: int64(accountID), Valid: true}
+	checkout.UpdatedBy = sql.NullInt64{Int64: int64(accountID), Valid: true}
+
+	err := r.db.QueryRow(query, toolID, accountID).Scan(
+		&checkout.ID, &checkout.CheckoutAt, &checkout.CreatedAt, &checkout.UpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return &checkout, nil
+}
+
+// CheckinTool updates a tool checkout record with checkin time
+func (r *ToolRepository) CheckinTool(checkoutID int) error {
+	query := `
+		UPDATE tool_checkout 
+		SET checkin_at = NOW(), updated_at = NOW()
+		WHERE id = $1 AND checkin_at IS NULL`
+
+	result, err := r.db.Exec(query, checkoutID)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("tool checkout not found or already checked in")
+	}
+
+	return nil
+}
+
+// GetActiveCheckouts retrieves all currently checked out tools
+func (r *ToolRepository) GetActiveCheckouts() ([]ToolCheckout, error) {
+	query := `
+		SELECT tc.id, tc.tool, tc.account, tc.checkout_at, tc.checkin_at,
+		       tc.created_at, tc.updated_at, tc.created_by, tc.updated_by,
+		       td.name, td.type,
+		       a.username, a.name
+		FROM tool_checkout tc
+		JOIN tool_description td ON tc.tool = td.id
+		JOIN account a ON tc.account = a.id
+		WHERE tc.checkin_at IS NULL
+		ORDER BY tc.checkout_at DESC`
+
+	rows, err := r.db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var checkouts []ToolCheckout
+	for rows.Next() {
+		var checkout ToolCheckout
+		var tool ToolDescription
+		var account Account
+		err := rows.Scan(
+			&checkout.ID, &checkout.ToolID, &checkout.AccountID, &checkout.CheckoutAt, &checkout.CheckinAt,
+			&checkout.CreatedAt, &checkout.UpdatedAt, &checkout.CreatedBy, &checkout.UpdatedBy,
+			&tool.Name, &tool.Type,
+			&account.Username, &account.Name,
+		)
+		if err != nil {
+			return nil, err
+		}
+		tool.ID = checkout.ToolID
+		account.ID = checkout.AccountID
+		checkout.Tool = &tool
+		checkout.Account = &account
+		checkouts = append(checkouts, checkout)
+	}
+
+	return checkouts, nil
+}
+
+// EventRepository handles database operations for events
+type EventRepository struct {
+	db *sql.DB
+}
+
+func NewEventRepository(db *sql.DB) *EventRepository {
+	return &EventRepository{db: db}
+}
+
+// CreateEvent creates a new event record
+func (r *EventRepository) CreateEvent(domain, key string, createdBy int) (*Event, error) {
+	query := `
+		INSERT INTO event (domain, key, created_at, updated_at, created_by, updated_by)
+		VALUES ($1, $2, NOW(), NOW(), $3, $3)
+		RETURNING id, created_at, updated_at`
+
+	var event Event
+	event.Domain = domain
+	event.Key = key
+	event.CreatedBy = sql.NullInt64{Int64: int64(createdBy), Valid: true}
+	event.UpdatedBy = sql.NullInt64{Int64: int64(createdBy), Valid: true}
+
+	err := r.db.QueryRow(query, domain, key, createdBy).Scan(
+		&event.ID, &event.CreatedAt, &event.UpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return &event, nil
+}
+
+// MembershipRepository handles database operations for memberships
+type MembershipRepository struct {
+	db *sql.DB
+}
+
+func NewMembershipRepository(db *sql.DB) *MembershipRepository {
+	return &MembershipRepository{db: db}
+}
+
+// GetMembershipByAccount retrieves membership info for an account
+func (r *MembershipRepository) GetMembershipByAccount(accountID int) (*Membership, error) {
+	query := `
+		SELECT id, account, first_membership, start_membership, fee, membership_number,
+		       created_at, updated_at, created_by, updated_by
+		FROM membership WHERE account = $1`
+
+	var membership Membership
+	err := r.db.QueryRow(query, accountID).Scan(
+		&membership.ID, &membership.AccountID, &membership.FirstMembership, &membership.StartMembership,
+		&membership.Fee, &membership.MembershipNumber,
+		&membership.CreatedAt, &membership.UpdatedAt, &membership.CreatedBy, &membership.UpdatedBy,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &membership, nil
+}
+
+// IsAccountPayingMember checks if an account has an active Stripe payment
+func (r *MembershipRepository) IsAccountPayingMember(accountID int) (bool, error) {
+	query := `
+		SELECT COUNT(*) FROM stripe_payment 
+		WHERE created_by = $1 AND end_date >= NOW() - INTERVAL '1 day'`
+
+	var count int
+	err := r.db.QueryRow(query, accountID).Scan(&count)
+	if err != nil {
+		return false, err
+	}
+
+	return count > 0, nil
+}
+
+// IsAccountCompanyEmployee checks if an account is employed by an active company
+func (r *MembershipRepository) IsAccountCompanyEmployee(accountID int) (bool, error) {
+	query := `
+		SELECT COUNT(*) FROM company_employee ce
+		JOIN company c ON ce.company = c.id
+		WHERE ce.account = $1 AND c.active = true`
+
+	var count int
+	err := r.db.QueryRow(query, accountID).Scan(&count)
+	if err != nil {
+		return false, err
+	}
+
+	return count > 0, nil
+}
+
+// IsActiveMember checks if an account is an active member (paying or company employee)
+func (r *MembershipRepository) IsActiveMember(accountID int) (bool, error) {
+	// Check if paying member
+	isPaying, err := r.IsAccountPayingMember(accountID)
+	if err != nil {
+		return false, err
+	}
+	if isPaying {
+		return true, nil
+	}
+
+	// Check if company employee
+	isEmployee, err := r.IsAccountCompanyEmployee(accountID)
+	if err != nil {
+		return false, err
+	}
+
+	return isEmployee, nil
+}
+
+// GetActivePayingMembers retrieves all accounts with active payments
+func (r *MembershipRepository) GetActivePayingMembers() ([]Account, error) {
+	query := `
+		SELECT DISTINCT a.id, a.username, a.email, a.password, a.name, a.phone, 
+		       a.reset_token, a.reset_token_validity, a.system,
+		       a.created_at, a.updated_at, a.created_by, a.updated_by
+		FROM account a
+		JOIN stripe_payment sp ON sp.created_by = a.id
+		WHERE sp.end_date >= NOW() - INTERVAL '1 day'
+		ORDER BY a.username`
+
+	rows, err := r.db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var accounts []Account
+	for rows.Next() {
+		var account Account
+		err := rows.Scan(
+			&account.ID, &account.Username, &account.Email, &account.Password,
+			&account.Name, &account.Phone, &account.ResetToken, &account.ResetTokenValidity,
+			&account.System, &account.CreatedAt, &account.UpdatedAt, &account.CreatedBy, &account.UpdatedBy,
+		)
+		if err != nil {
+			return nil, err
+		}
+		accounts = append(accounts, account)
+	}
+
+	return accounts, nil
+}
+
+// GetActiveCompanies retrieves all active companies
+func (r *MembershipRepository) GetActiveCompanies() ([]Company, error) {
+	query := `
+		SELECT c.id, c.name, c.active, c.contact,
+		       c.created_at, c.updated_at, c.created_by, c.updated_by,
+		       a.username, a.name
+		FROM company c
+		JOIN account a ON c.contact = a.id
+		WHERE c.active = true
+		ORDER BY c.name`
+
+	rows, err := r.db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var companies []Company
+	for rows.Next() {
+		var company Company
+		var contact Account
+		err := rows.Scan(
+			&company.ID, &company.Name, &company.Active, &company.ContactID,
+			&company.CreatedAt, &company.UpdatedAt, &company.CreatedBy, &company.UpdatedBy,
+			&contact.Username, &contact.Name,
+		)
+		if err != nil {
+			return nil, err
+		}
+		contact.ID = company.ContactID
+		company.Contact = &contact
+		companies = append(companies, company)
+	}
+
+	return companies, nil
+}
+
+// GetRecentEvents retrieves recent events for a domain
+func (r *EventRepository) GetRecentEvents(domain string, limit int) ([]Event, error) {
+	query := `
+		SELECT id, domain, key, text1, text2, text3, int1, int2, int3,
+		       created_at, updated_at, created_by, updated_by
+		FROM event 
+		WHERE domain = $1 
+		ORDER BY created_at DESC 
+		LIMIT $2`
+
+	rows, err := r.db.Query(query, domain, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var events []Event
+	for rows.Next() {
+		var event Event
+		err := rows.Scan(
+			&event.ID, &event.Domain, &event.Key, &event.Text1, &event.Text2, &event.Text3,
+			&event.Int1, &event.Int2, &event.Int3,
+			&event.CreatedAt, &event.UpdatedAt, &event.CreatedBy, &event.UpdatedBy,
+		)
+		if err != nil {
+			return nil, err
+		}
+		events = append(events, event)
+	}
+
+	return events, nil
+}
+
+// DoorRepository handles database operations for doors and access
+type DoorRepository struct {
+	db *sql.DB
+}
+
+func NewDoorRepository(db *sql.DB) *DoorRepository {
+	return &DoorRepository{db: db}
+}
+
+// GetConfiguredDoors returns hardcoded door configurations
+// In a real implementation, this would come from a config file or database
+func (r *DoorRepository) GetConfiguredDoors() []Door {
+	return []Door{
+		{
+			Key:       "main",
+			Name:      "Main Door",
+			OpenTime:  5,
+			Type:      "mqtt",
+			Topic:     "bitraf/door/main",
+			CircleIDs: []int{1}, // Admin circle
+		},
+		{
+			Key:       "workshop", 
+			Name:      "Workshop Door",
+			OpenTime:  5,
+			Type:      "mqtt",
+			Topic:     "bitraf/door/workshop",
+			CircleIDs: []int{1, 2}, // Admin and member circles
+		},
+		{
+			Key:       "storage",
+			Name:      "Storage Room",
+			OpenTime:  3,
+			Type:      "dlock",
+			URL:       "http://storage-lock.local",
+			CircleIDs: []int{1}, // Admin only
+		},
+	}
+}
+
+// CanAccessDoor checks if an account can access a specific door
+func (r *DoorRepository) CanAccessDoor(accountID int, door Door, membershipRepo *MembershipRepository) (bool, error) {
+	// Check if account is company employee (has access to all doors)
+	isEmployee, err := membershipRepo.IsAccountCompanyEmployee(accountID)
+	if err != nil {
+		return false, err
+	}
+	if isEmployee {
+		return true, nil
+	}
+
+	// Check if account is paying member
+	isPaying, err := membershipRepo.IsAccountPayingMember(accountID)
+	if err != nil {
+		return false, err
+	}
+	if !isPaying {
+		return false, nil // Must be paying member for door access
+	}
+
+	// Check circle membership if required
+	if len(door.CircleIDs) > 0 {
+		for _, circleID := range door.CircleIDs {
+			isMember, err := r.IsAccountInCircle(accountID, circleID)
+			if err != nil {
+				return false, err
+			}
+			if isMember {
+				return true, nil
+			}
+		}
+		return false, nil // Not in any required circle
+	}
+
+	return true, nil // Paying member with no circle requirements
+}
+
+// IsAccountInCircle checks if an account is a member of a circle
+func (r *DoorRepository) IsAccountInCircle(accountID int, circleID int) (bool, error) {
+	query := `SELECT COUNT(*) FROM circle_member WHERE account = $1 AND circle = $2`
+	
+	var count int
+	err := r.db.QueryRow(query, accountID, circleID).Scan(&count)
+	if err != nil {
+		return false, err
+	}
+	
+	return count > 0, nil
+}
+
+// GetAccessibleDoors returns doors that an account can access
+func (r *DoorRepository) GetAccessibleDoors(accountID int, membershipRepo *MembershipRepository) ([]Door, error) {
+	allDoors := r.GetConfiguredDoors()
+	var accessibleDoors []Door
+	
+	for _, door := range allDoors {
+		canAccess, err := r.CanAccessDoor(accountID, door, membershipRepo)
+		if err != nil {
+			return nil, err
+		}
+		if canAccess {
+			accessibleDoors = append(accessibleDoors, door)
+		}
+	}
+	
+	return accessibleDoors, nil
+}
+
+// LogDoorAccess records a door access event
+func (r *DoorRepository) LogDoorAccess(accountID int, doorKey string) (*DoorAccess, error) {
+	query := `
+		INSERT INTO door_access (account, door_key, opened_at, created_at, updated_at, created_by, updated_by)
+		VALUES ($1, $2, NOW(), NOW(), NOW(), $1, $1)
+		RETURNING id, opened_at, created_at, updated_at`
+
+	var access DoorAccess
+	access.AccountID = accountID
+	access.DoorKey = doorKey
+	access.CreatedBy = sql.NullInt64{Int64: int64(accountID), Valid: true}
+	access.UpdatedBy = sql.NullInt64{Int64: int64(accountID), Valid: true}
+
+	err := r.db.QueryRow(query, accountID, doorKey).Scan(
+		&access.ID, &access.OpenedAt, &access.CreatedAt, &access.UpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return &access, nil
+}
+
+// GetRecentDoorAccess returns recent door access events
+func (r *DoorRepository) GetRecentDoorAccess(limit int) ([]DoorAccess, error) {
+	query := `
+		SELECT da.id, da.account, da.door_key, da.opened_at,
+		       da.created_at, da.updated_at, da.created_by, da.updated_by,
+		       a.username, a.name
+		FROM door_access da
+		JOIN account a ON da.account = a.id
+		ORDER BY da.opened_at DESC
+		LIMIT $1`
+
+	rows, err := r.db.Query(query, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var accesses []DoorAccess
+	for rows.Next() {
+		var access DoorAccess
+		var account Account
+		err := rows.Scan(
+			&access.ID, &access.AccountID, &access.DoorKey, &access.OpenedAt,
+			&access.CreatedAt, &access.UpdatedAt, &access.CreatedBy, &access.UpdatedBy,
+			&account.Username, &account.Name,
+		)
+		if err != nil {
+			return nil, err
+		}
+		account.ID = access.AccountID
+		access.Account = &account
+		accesses = append(accesses, access)
+	}
+
+	return accesses, nil
+}

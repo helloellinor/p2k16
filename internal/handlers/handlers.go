@@ -3,6 +3,7 @@ package handlers
 import (
 	"fmt"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/helloellinor/p2k16/internal/middleware"
@@ -10,17 +11,35 @@ import (
 )
 
 type Handler struct {
-	accountRepo *models.AccountRepository
-	circleRepo  *models.CircleRepository
-	badgeRepo   *models.BadgeRepository
+	accountRepo    *models.AccountRepository
+	circleRepo     *models.CircleRepository
+	badgeRepo      *models.BadgeRepository
+	toolRepo       *models.ToolRepository
+	eventRepo      *models.EventRepository
+	membershipRepo *models.MembershipRepository
+	demoMode       bool
 }
 
-func NewHandler(accountRepo *models.AccountRepository, circleRepo *models.CircleRepository, badgeRepo *models.BadgeRepository) *Handler {
+func NewHandler(accountRepo *models.AccountRepository, circleRepo *models.CircleRepository, badgeRepo *models.BadgeRepository, toolRepo *models.ToolRepository, eventRepo *models.EventRepository, membershipRepo *models.MembershipRepository) *Handler {
 	return &Handler{
-		accountRepo: accountRepo,
-		circleRepo:  circleRepo,
-		badgeRepo:   badgeRepo,
+		accountRepo:    accountRepo,
+		circleRepo:     circleRepo,
+		badgeRepo:      badgeRepo,
+		toolRepo:       toolRepo,
+		eventRepo:      eventRepo,
+		membershipRepo: membershipRepo,
+		demoMode:       false,
 	}
+}
+
+// SetDemoMode sets whether the handler is running in demo mode
+func (h *Handler) SetDemoMode(demoMode bool) {
+	h.demoMode = demoMode
+}
+
+// GetAccountRepo returns the account repository (may be nil in demo mode)
+func (h *Handler) GetAccountRepo() *models.AccountRepository {
+	return h.accountRepo
 }
 
 // Home renders the front page
@@ -78,9 +97,20 @@ func (h *Handler) Home(c *gin.Context) {
                     <div class="card-header">
                         <h5>System Status</h5>
                     </div>
-                    <div class="card-body">
+                    <div class="card-body">`
+
+	if h.demoMode {
+		html += `
+                        <span class="badge bg-warning">Demo Mode</span>
+                        <p class="mt-2">Running without database connection</p>
+                        <small class="text-muted">Use "demo" with any password, "super/super", or "foo/foo" to login</small>`
+	} else {
+		html += `
                         <span class="badge bg-success">Online</span>
-                        <p class="mt-2">All systems operational</p>
+                        <p class="mt-2">Database connected - all systems operational</p>`
+	}
+
+	html += `
                     </div>
                 </div>
             </div>
@@ -124,15 +154,42 @@ func (h *Handler) Login(c *gin.Context) {
                     <div class="card-header">
                         <h4>Login to P2K16</h4>
                     </div>
-                    <div class="card-body">
-                        <form hx-post="/api/auth/login" hx-target="#login-result">
+                    <div class="card-body">`
+
+	if h.demoMode {
+		html += `
+                        <div class="alert alert-info">
+                            <strong>Demo Mode:</strong> Use "demo" with any password, "super/super", or "foo/foo"
+                        </div>`
+	}
+
+	html += `
+                        <form hx-post="/api/auth/login" hx-target="#login-result" method="post" action="/api/auth/login">
                             <div class="mb-3">
-                                <label for="username" class="form-label">Username</label>
-                                <input type="text" class="form-control" id="username" name="username" required>
+                                <label for="username" class="form-label">Username</label>`
+
+	if h.demoMode {
+		html += `
+                                <input type="text" class="form-control" id="username" name="username" value="foo" required>`
+	} else {
+		html += `
+                                <input type="text" class="form-control" id="username" name="username" required>`
+	}
+
+	html += `
                             </div>
                             <div class="mb-3">
-                                <label for="password" class="form-label">Password</label>
-                                <input type="password" class="form-control" id="password" name="password" required>
+                                <label for="password" class="form-label">Password</label>`
+
+	if h.demoMode {
+		html += `
+                                <input type="password" class="form-control" id="password" name="password" value="foo" required>`
+	} else {
+		html += `
+                                <input type="password" class="form-control" id="password" name="password" required>`
+	}
+
+	html += `
                             </div>
                             <button type="submit" class="btn btn-primary">Login</button>
                             <a href="/" class="btn btn-secondary">Back to Home</a>
@@ -183,7 +240,7 @@ func (h *Handler) Dashboard(c *gin.Context) {
         </div>
         
         <div class="row mt-4">
-            <div class="col-md-4">
+            <div class="col-md-3">
                 <div class="card">
                     <div class="card-header">
                         <h5>Your Badges</h5>
@@ -195,17 +252,33 @@ func (h *Handler) Dashboard(c *gin.Context) {
                     </div>
                 </div>
             </div>
-            <div class="col-md-4">
+            <div class="col-md-3">
                 <div class="card">
                     <div class="card-header">
-                        <h5>Recent Activity</h5>
+                        <h5>Tool Management</h5>
                     </div>
                     <div class="card-body">
-                        <p class="text-muted">No recent activity</p>
+                        <div id="tool-section">
+                            <button class="btn btn-success mb-2" hx-get="/api/tools" hx-target="#tool-section">Browse Tools</button>
+                            <button class="btn btn-warning" hx-get="/api/tools/checkouts" hx-target="#tool-section">Active Checkouts</button>
+                        </div>
                     </div>
                 </div>
             </div>
-            <div class="col-md-4">
+            <div class="col-md-3">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>Membership</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="membership-section">
+                            <button class="btn btn-info mb-2" hx-get="/api/membership/status" hx-target="#membership-section">My Status</button>
+                            <button class="btn btn-secondary" hx-get="/api/membership/active" hx-target="#membership-section">Active Members</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
                 <div class="card">
                     <div class="card-header">
                         <h5>Quick Actions</h5>
@@ -298,6 +371,66 @@ func (h *Handler) AuthLogin(c *gin.Context) {
 		return
 	}
 
+	// Handle demo mode authentication
+	if h.demoMode || h.accountRepo == nil {
+		// Check demo credentials using the same password hashes as the database
+		var isValid bool
+		var accountID int = 1
+		
+		switch username {
+		case "demo":
+			// Allow any password for demo user
+			isValid = true
+		case "super":
+			// Use the actual bcrypt hash from migration for super/super
+			superHash := "$2b$12$B/kxR5O85fN357.fZNUPoOiNblCj7j2lX3/VLajLvuE42OmqsyUTO"
+			account := &models.Account{Password: superHash}
+			isValid = account.ValidatePassword(password)
+			accountID = 2
+		case "foo":
+			// Use the actual bcrypt hash from migration for foo/foo
+			fooHash := "$2b$12$o764MV/jh0HnsAtsEz53L.GfbLwCqZ5jTf3aV2yUAFFCaTrzGCcQm"
+			account := &models.Account{Password: fooHash}
+			isValid = account.ValidatePassword(password)
+			accountID = 3
+		}
+
+		if isValid {
+			// Create a demo account for session
+			account := &models.Account{
+				ID:       accountID,
+				Username: username,
+				Email:    username + "@demo.local",
+			}
+
+			// Login user by setting session
+			if err := middleware.LoginUser(c, account); err != nil {
+				c.Data(http.StatusInternalServerError, "text/html; charset=utf-8",
+					[]byte(`<div class="alert alert-danger">Failed to login. Please try again.</div>`))
+				return
+			}
+
+			// Successful login - redirect via HTMX
+			html := `
+				<div class="alert alert-success">
+					Login successful! Welcome to demo mode, ` + account.Username + `
+				</div>
+				<script>
+					setTimeout(function() {
+						window.location.href = '/dashboard';
+					}, 1000);
+				</script>`
+
+			c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
+			return
+		}
+
+		c.Data(http.StatusUnauthorized, "text/html; charset=utf-8",
+			[]byte(`<div class="alert alert-danger">Invalid username or password. In demo mode, use "demo" with any password, "super/super", or "foo/foo".</div>`))
+		return
+	}
+
+	// Normal database authentication
 	account, err := h.accountRepo.FindByUsername(username)
 	if err != nil {
 		c.Data(http.StatusUnauthorized, "text/html; charset=utf-8",
@@ -457,17 +590,300 @@ func (h *Handler) AwardBadge(c *gin.Context) {
 	_, err = h.badgeRepo.AwardBadge(user.ID, desc.ID, user.ID)
 	if err != nil {
 		c.Data(http.StatusInternalServerError, "text/html; charset=utf-8",
-			[]byte(`<div class="alert alert-danger">Failed to award badge</div>`))
+			[]byte("<div class=\"alert alert-danger\">Failed to award badge</div>"))
 		return
 	}
 
-	html := `
-<div class="alert alert-success">
-Badge "` + badgeTitle + `" awarded! 
-<button class="btn btn-sm btn-primary ms-2" hx-get="/api/user/badges" hx-target="#user-badges">
-Refresh Badges
-</button>
-</div>`
+	html := "<div class=\"alert alert-success\">" +
+		"Badge \"" + badgeTitle + "\" awarded! " +
+		"<button class=\"btn btn-sm btn-primary ms-2\" hx-get=\"/api/user/badges\" hx-target=\"#user-badges\">" +
+		"Refresh Badges" +
+		"</button>" +
+		"</div>"
+
+	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
+}
+
+// GetTools returns a list of all tools
+func (h *Handler) GetTools(c *gin.Context) {
+	tools, err := h.toolRepo.GetAllTools()
+	if err != nil {
+		c.Data(http.StatusInternalServerError, "text/html; charset=utf-8",
+			[]byte("<div class=\"alert alert-danger\">Failed to load tools</div>"))
+		return
+	}
+
+	html := "<div class=\"card\">" +
+		"<div class=\"card-header\">" +
+		"<h6>Available Tools</h6>" +
+		"</div>" +
+		"<div class=\"card-body\">" +
+		"<div class=\"row\">"
+
+	for _, tool := range tools {
+		html += "<div class=\"col-md-6 mb-3\">" +
+			"<div class=\"card border-primary\">" +
+			"<div class=\"card-body\">" +
+			"<h6 class=\"card-title\">" + tool.Name + "</h6>" +
+			"<p class=\"card-text\">Type: " + tool.Type + "</p>" +
+			"<button class=\"btn btn-success btn-sm\" " +
+			"hx-post=\"/api/tools/checkout\" " +
+			"hx-vals='{\"tool_id\":\"" + strconv.Itoa(tool.ID) + "\"}' " +
+			"hx-target=\"#tool-result\" " +
+			"hx-swap=\"innerHTML\">" +
+			"Checkout" +
+			"</button>" +
+			"</div>" +
+			"</div>" +
+			"</div>"
+	}
+
+	html += "</div>" +
+		"<div id=\"tool-result\" class=\"mt-3\"></div>" +
+		"</div>" +
+		"</div>"
+
+	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
+}
+
+// GetActiveCheckouts returns currently checked out tools
+func (h *Handler) GetActiveCheckouts(c *gin.Context) {
+	checkouts, err := h.toolRepo.GetActiveCheckouts()
+	if err != nil {
+		c.Data(http.StatusInternalServerError, "text/html; charset=utf-8",
+			[]byte("<div class=\"alert alert-danger\">Failed to load active checkouts</div>"))
+		return
+	}
+
+	html := "<div class=\"card\">" +
+		"<div class=\"card-header\">" +
+		"<h6>Currently Checked Out Tools</h6>" +
+		"</div>" +
+		"<div class=\"card-body\">"
+
+	if len(checkouts) == 0 {
+		html += "<p class=\"text-muted\">No tools currently checked out.</p>"
+	} else {
+		html += "<div class=\"list-group\">"
+		for _, checkout := range checkouts {
+			html += "<div class=\"list-group-item d-flex justify-content-between align-items-center\">" +
+				"<div>" +
+				"<h6 class=\"mb-1\">" + checkout.Tool.Name + " (" + checkout.Tool.Type + ")</h6>" +
+				"<p class=\"mb-1\">Checked out by: " + checkout.Account.Username + "</p>" +
+				"<small>Since: " + checkout.CheckoutAt.Format("2006-01-02 15:04") + "</small>" +
+				"</div>" +
+				"<button class=\"btn btn-warning btn-sm\" " +
+				"hx-post=\"/api/tools/checkin\" " +
+				"hx-vals='{\"checkout_id\":\"" + strconv.Itoa(checkout.ID) + "\"}' " +
+				"hx-target=\"#tool-result\" " +
+				"hx-swap=\"innerHTML\">" +
+				"Check In" +
+				"</button>" +
+				"</div>"
+		}
+		html += "</div>"
+	}
+
+	html += "<div id=\"tool-result\" class=\"mt-3\"></div>" +
+		"</div>" +
+		"</div>"
+
+	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
+}
+
+// CheckoutTool handles tool checkout
+func (h *Handler) CheckoutTool(c *gin.Context) {
+	user := middleware.GetCurrentUser(c)
+	toolIDStr := c.PostForm("tool_id")
+
+	toolID, err := strconv.Atoi(toolIDStr)
+	if err != nil {
+		c.Data(http.StatusBadRequest, "text/html; charset=utf-8",
+			[]byte("<div class=\"alert alert-danger\">Invalid tool ID</div>"))
+		return
+	}
+
+	// Check if tool exists
+	tool, err := h.toolRepo.FindToolByID(toolID)
+	if err != nil {
+		c.Data(http.StatusNotFound, "text/html; charset=utf-8",
+			[]byte("<div class=\"alert alert-danger\">Tool not found</div>"))
+		return
+	}
+
+	// Create checkout record
+	_, err = h.toolRepo.CheckoutTool(toolID, user.ID)
+	if err != nil {
+		c.Data(http.StatusInternalServerError, "text/html; charset=utf-8",
+			[]byte("<div class=\"alert alert-danger\">Failed to checkout tool</div>"))
+		return
+	}
+
+	// Log event
+	h.eventRepo.CreateEvent("tool", "checkout", user.ID)
+
+	html := "<div class=\"alert alert-success\">" +
+		"Successfully checked out \"" + tool.Name + "\"! " +
+		"<button class=\"btn btn-sm btn-primary ms-2\" hx-get=\"/api/tools/checkouts\" hx-target=\"#active-checkouts\">" +
+		"Refresh Checkouts" +
+		"</button>" +
+		"</div>"
+
+	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
+}
+
+// CheckinTool handles tool checkin
+func (h *Handler) CheckinTool(c *gin.Context) {
+	user := middleware.GetCurrentUser(c)
+	checkoutIDStr := c.PostForm("checkout_id")
+
+	checkoutID, err := strconv.Atoi(checkoutIDStr)
+	if err != nil {
+		c.Data(http.StatusBadRequest, "text/html; charset=utf-8",
+			[]byte("<div class=\"alert alert-danger\">Invalid checkout ID</div>"))
+		return
+	}
+
+	// Check in tool
+	err = h.toolRepo.CheckinTool(checkoutID)
+	if err != nil {
+		c.Data(http.StatusInternalServerError, "text/html; charset=utf-8",
+			[]byte("<div class=\"alert alert-danger\">Failed to check in tool: "+err.Error()+"</div>"))
+		return
+	}
+
+	// Log event
+	h.eventRepo.CreateEvent("tool", "checkin", user.ID)
+
+	html := "<div class=\"alert alert-success\">" +
+		"Tool checked in successfully! " +
+		"<button class=\"btn btn-sm btn-primary ms-2\" hx-get=\"/api/tools/checkouts\" hx-target=\"#active-checkouts\">" +
+		"Refresh Checkouts" +
+		"</button>" +
+		"</div>"
+
+	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
+}
+// GetMembershipStatus returns the membership status for current user
+func (h *Handler) GetMembershipStatus(c *gin.Context) {
+	user := middleware.GetCurrentUser(c)
+
+	// Check if user is an active member
+	isActive, err := h.membershipRepo.IsActiveMember(user.ID)
+	if err != nil {
+		c.Data(http.StatusInternalServerError, "text/html; charset=utf-8",
+			[]byte("<div class=\"alert alert-danger\">Failed to check membership status</div>"))
+		return
+	}
+
+	// Check payment status
+	isPaying, _ := h.membershipRepo.IsAccountPayingMember(user.ID)
+	isEmployee, _ := h.membershipRepo.IsAccountCompanyEmployee(user.ID)
+
+	// Get membership details
+	membership, _ := h.membershipRepo.GetMembershipByAccount(user.ID)
+
+	html := "<div class=\"card\">" +
+		"<div class=\"card-header\">" +
+		"<h6>Membership Status</h6>" +
+		"</div>" +
+		"<div class=\"card-body\">"
+
+	if isActive {
+		html += "<div class=\"alert alert-success\">" +
+			"<strong>Active Member</strong>"
+		if isPaying {
+			html += " (Paying Member)"
+		}
+		if isEmployee {
+			html += " (Company Employee)"
+		}
+		html += "</div>"
+	} else {
+		html += "<div class=\"alert alert-warning\">" +
+			"<strong>Inactive Member</strong>" +
+			"</div>"
+	}
+
+	if membership != nil {
+		html += "<div class=\"mt-3\">" +
+			"<h6>Membership Details</h6>" +
+			"<p><strong>Member since:</strong> " + membership.FirstMembership.Format("2006-01-02") + "</p>" +
+			"<p><strong>Current membership start:</strong> " + membership.StartMembership.Format("2006-01-02") + "</p>" +
+			"<p><strong>Monthly fee:</strong> " + fmt.Sprintf("%.2f NOK", float64(membership.Fee)/100) + "</p>"
+		if membership.MembershipNumber.Valid {
+			html += "<p><strong>Membership number:</strong> " + fmt.Sprintf("%d", membership.MembershipNumber.Int64) + "</p>"
+		}
+		html += "</div>"
+	}
+
+	html += "</div>" +
+		"</div>"
+
+	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
+}
+
+// GetActiveMembers returns a list of active members
+func (h *Handler) GetActiveMembersDetailed(c *gin.Context) {
+	payingMembers, err := h.membershipRepo.GetActivePayingMembers()
+	if err != nil {
+		c.Data(http.StatusInternalServerError, "text/html; charset=utf-8",
+			[]byte("<div class=\"alert alert-danger\">Failed to load active members</div>"))
+		return
+	}
+
+	activeCompanies, err := h.membershipRepo.GetActiveCompanies()
+	if err != nil {
+		c.Data(http.StatusInternalServerError, "text/html; charset=utf-8",
+			[]byte("<div class=\"alert alert-danger\">Failed to load companies</div>"))
+		return
+	}
+
+	html := "<div class=\"card\">" +
+		"<div class=\"card-header\">" +
+		"<h6>Active Members</h6>" +
+		"</div>" +
+		"<div class=\"card-body\">"
+
+	// Show paying members
+	if len(payingMembers) > 0 {
+		html += "<h6 class=\"text-success\">Paying Members (" + fmt.Sprintf("%d", len(payingMembers)) + ")</h6>" +
+			"<div class=\"row\">"
+		for _, member := range payingMembers {
+			displayName := member.Username
+			if member.Name.Valid && member.Name.String != "" {
+				displayName = member.Name.String + " (" + member.Username + ")"
+			}
+			html += "<div class=\"col-md-6 mb-2\">" +
+				"<span class=\"badge bg-success\">" + displayName + "</span>" +
+				"</div>"
+		}
+		html += "</div>"
+	}
+
+	// Show companies
+	if len(activeCompanies) > 0 {
+		html += "<h6 class=\"text-primary mt-3\">Active Companies (" + fmt.Sprintf("%d", len(activeCompanies)) + ")</h6>" +
+			"<div class=\"list-group\">"
+		for _, company := range activeCompanies {
+			contactName := company.Contact.Username
+			if company.Contact.Name.Valid && company.Contact.Name.String != "" {
+				contactName = company.Contact.Name.String
+			}
+			html += "<div class=\"list-group-item\">" +
+				"<h6 class=\"mb-1\">" + company.Name + "</h6>" +
+				"<p class=\"mb-1\">Contact: " + contactName + "</p>" +
+				"</div>"
+		}
+		html += "</div>"
+	}
+
+	if len(payingMembers) == 0 && len(activeCompanies) == 0 {
+		html += "<p class=\"text-muted\">No active members found.</p>"
+	}
+
+	html += "</div>" +
+		"</div>"
 
 	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
 }
