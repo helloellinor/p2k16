@@ -252,3 +252,213 @@ func (r *BadgeRepository) FindBadgeDescriptionByTitle(title string) (*BadgeDescr
 
 	return &desc, nil
 }
+// ToolRepository handles database operations for tools
+type ToolRepository struct {
+	db *sql.DB
+}
+
+func NewToolRepository(db *sql.DB) *ToolRepository {
+	return &ToolRepository{db: db}
+}
+
+// GetAllTools retrieves all tool descriptions
+func (r *ToolRepository) GetAllTools() ([]ToolDescription, error) {
+	query := `
+		SELECT id, name, type, created_at, updated_at, created_by, updated_by
+		FROM tool_description ORDER BY name`
+
+	rows, err := r.db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var tools []ToolDescription
+	for rows.Next() {
+		var tool ToolDescription
+		err := rows.Scan(
+			&tool.ID, &tool.Name, &tool.Type,
+			&tool.CreatedAt, &tool.UpdatedAt, &tool.CreatedBy, &tool.UpdatedBy,
+		)
+		if err != nil {
+			return nil, err
+		}
+		tools = append(tools, tool)
+	}
+
+	return tools, nil
+}
+
+// FindToolByID retrieves a tool by ID
+func (r *ToolRepository) FindToolByID(id int) (*ToolDescription, error) {
+	query := `
+		SELECT id, name, type, created_at, updated_at, created_by, updated_by
+		FROM tool_description WHERE id = $1`
+
+	var tool ToolDescription
+	err := r.db.QueryRow(query, id).Scan(
+		&tool.ID, &tool.Name, &tool.Type,
+		&tool.CreatedAt, &tool.UpdatedAt, &tool.CreatedBy, &tool.UpdatedBy,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &tool, nil
+}
+
+// CheckoutTool creates a tool checkout record
+func (r *ToolRepository) CheckoutTool(toolID int, accountID int) (*ToolCheckout, error) {
+	query := `
+		INSERT INTO tool_checkout (tool, account, checkout_at, created_at, updated_at, created_by, updated_by)
+		VALUES ($1, $2, NOW(), NOW(), NOW(), $2, $2)
+		RETURNING id, checkout_at, created_at, updated_at`
+
+	var checkout ToolCheckout
+	checkout.ToolID = toolID
+	checkout.AccountID = accountID
+	checkout.CreatedBy = sql.NullInt64{Int64: int64(accountID), Valid: true}
+	checkout.UpdatedBy = sql.NullInt64{Int64: int64(accountID), Valid: true}
+
+	err := r.db.QueryRow(query, toolID, accountID).Scan(
+		&checkout.ID, &checkout.CheckoutAt, &checkout.CreatedAt, &checkout.UpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return &checkout, nil
+}
+
+// CheckinTool updates a tool checkout record with checkin time
+func (r *ToolRepository) CheckinTool(checkoutID int) error {
+	query := `
+		UPDATE tool_checkout 
+		SET checkin_at = NOW(), updated_at = NOW()
+		WHERE id = $1 AND checkin_at IS NULL`
+
+	result, err := r.db.Exec(query, checkoutID)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("tool checkout not found or already checked in")
+	}
+
+	return nil
+}
+
+// GetActiveCheckouts retrieves all currently checked out tools
+func (r *ToolRepository) GetActiveCheckouts() ([]ToolCheckout, error) {
+	query := `
+		SELECT tc.id, tc.tool, tc.account, tc.checkout_at, tc.checkin_at,
+		       tc.created_at, tc.updated_at, tc.created_by, tc.updated_by,
+		       td.name, td.type,
+		       a.username, a.name
+		FROM tool_checkout tc
+		JOIN tool_description td ON tc.tool = td.id
+		JOIN account a ON tc.account = a.id
+		WHERE tc.checkin_at IS NULL
+		ORDER BY tc.checkout_at DESC`
+
+	rows, err := r.db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var checkouts []ToolCheckout
+	for rows.Next() {
+		var checkout ToolCheckout
+		var tool ToolDescription
+		var account Account
+		err := rows.Scan(
+			&checkout.ID, &checkout.ToolID, &checkout.AccountID, &checkout.CheckoutAt, &checkout.CheckinAt,
+			&checkout.CreatedAt, &checkout.UpdatedAt, &checkout.CreatedBy, &checkout.UpdatedBy,
+			&tool.Name, &tool.Type,
+			&account.Username, &account.Name,
+		)
+		if err != nil {
+			return nil, err
+		}
+		tool.ID = checkout.ToolID
+		account.ID = checkout.AccountID
+		checkout.Tool = &tool
+		checkout.Account = &account
+		checkouts = append(checkouts, checkout)
+	}
+
+	return checkouts, nil
+}
+
+// EventRepository handles database operations for events
+type EventRepository struct {
+	db *sql.DB
+}
+
+func NewEventRepository(db *sql.DB) *EventRepository {
+	return &EventRepository{db: db}
+}
+
+// CreateEvent creates a new event record
+func (r *EventRepository) CreateEvent(domain, key string, createdBy int) (*Event, error) {
+	query := `
+		INSERT INTO event (domain, key, created_at, updated_at, created_by, updated_by)
+		VALUES ($1, $2, NOW(), NOW(), $3, $3)
+		RETURNING id, created_at, updated_at`
+
+	var event Event
+	event.Domain = domain
+	event.Key = key
+	event.CreatedBy = sql.NullInt64{Int64: int64(createdBy), Valid: true}
+	event.UpdatedBy = sql.NullInt64{Int64: int64(createdBy), Valid: true}
+
+	err := r.db.QueryRow(query, domain, key, createdBy).Scan(
+		&event.ID, &event.CreatedAt, &event.UpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return &event, nil
+}
+
+// GetRecentEvents retrieves recent events for a domain
+func (r *EventRepository) GetRecentEvents(domain string, limit int) ([]Event, error) {
+	query := `
+		SELECT id, domain, key, text1, text2, text3, int1, int2, int3,
+		       created_at, updated_at, created_by, updated_by
+		FROM event 
+		WHERE domain = $1 
+		ORDER BY created_at DESC 
+		LIMIT $2`
+
+	rows, err := r.db.Query(query, domain, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var events []Event
+	for rows.Next() {
+		var event Event
+		err := rows.Scan(
+			&event.ID, &event.Domain, &event.Key, &event.Text1, &event.Text2, &event.Text3,
+			&event.Int1, &event.Int2, &event.Int3,
+			&event.CreatedAt, &event.UpdatedAt, &event.CreatedBy, &event.UpdatedBy,
+		)
+		if err != nil {
+			return nil, err
+		}
+		events = append(events, event)
+	}
+
+	return events, nil
+}

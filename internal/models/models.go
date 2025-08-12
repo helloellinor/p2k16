@@ -128,3 +128,48 @@ type StripePayment struct {
 	CreatedBy   sql.NullInt64 `json:"created_by"`
 	UpdatedBy   sql.NullInt64 `json:"updated_by"`
 }
+
+// ToolDescription represents a tool in the hackerspace
+type ToolDescription struct {
+	ID        int           `json:"id"`
+	Name      string        `json:"name"`
+	Type      string        `json:"type"`
+	CreatedAt time.Time     `json:"created_at"`
+	UpdatedAt time.Time     `json:"updated_at"`
+	CreatedBy sql.NullInt64 `json:"created_by"`
+	UpdatedBy sql.NullInt64 `json:"updated_by"`
+}
+
+// ToolCheckout represents a tool checkout record
+type ToolCheckout struct {
+	ID         int            `json:"id"`
+	ToolID     int            `json:"tool_id"`
+	AccountID  int            `json:"account_id"`
+	CheckoutAt time.Time      `json:"checkout_at"`
+	CheckinAt  sql.NullTime   `json:"checkin_at"`
+	CreatedAt  time.Time      `json:"created_at"`
+	UpdatedAt  time.Time      `json:"updated_at"`
+	CreatedBy  sql.NullInt64  `json:"created_by"`
+	UpdatedBy  sql.NullInt64  `json:"updated_by"`
+
+	// Relationships
+	Tool    *ToolDescription `json:"tool,omitempty"`
+	Account *Account         `json:"account,omitempty"`
+}
+
+// Event represents a system event
+type Event struct {
+	ID        int            `json:"id"`
+	Domain    string         `json:"domain"`
+	Key       string         `json:"key"`
+	Text1     sql.NullString `json:"text1"`
+	Text2     sql.NullString `json:"text2"`
+	Text3     sql.NullString `json:"text3"`
+	Int1      sql.NullInt64  `json:"int1"`
+	Int2      sql.NullInt64  `json:"int2"`
+	Int3      sql.NullInt64  `json:"int3"`
+	CreatedAt time.Time      `json:"created_at"`
+	UpdatedAt time.Time      `json:"updated_at"`
+	CreatedBy sql.NullInt64  `json:"created_by"`
+	UpdatedBy sql.NullInt64  `json:"updated_by"`
+}

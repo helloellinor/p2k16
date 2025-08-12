@@ -3,6 +3,7 @@ package handlers
 import (
 	"fmt"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/helloellinor/p2k16/internal/middleware"
@@ -13,13 +14,17 @@ type Handler struct {
 	accountRepo *models.AccountRepository
 	circleRepo  *models.CircleRepository
 	badgeRepo   *models.BadgeRepository
+	toolRepo    *models.ToolRepository
+	eventRepo   *models.EventRepository
 }
 
-func NewHandler(accountRepo *models.AccountRepository, circleRepo *models.CircleRepository, badgeRepo *models.BadgeRepository) *Handler {
+func NewHandler(accountRepo *models.AccountRepository, circleRepo *models.CircleRepository, badgeRepo *models.BadgeRepository, toolRepo *models.ToolRepository, eventRepo *models.EventRepository) *Handler {
 	return &Handler{
 		accountRepo: accountRepo,
 		circleRepo:  circleRepo,
 		badgeRepo:   badgeRepo,
+		toolRepo:    toolRepo,
+		eventRepo:   eventRepo,
 	}
 }
 
@@ -198,10 +203,13 @@ func (h *Handler) Dashboard(c *gin.Context) {
             <div class="col-md-4">
                 <div class="card">
                     <div class="card-header">
-                        <h5>Recent Activity</h5>
+                        <h5>Tool Management</h5>
                     </div>
                     <div class="card-body">
-                        <p class="text-muted">No recent activity</p>
+                        <div id="tool-section">
+                            <button class="btn btn-success mb-2" hx-get="/api/tools" hx-target="#tool-section">Browse Tools</button>
+                            <button class="btn btn-warning" hx-get="/api/tools/checkouts" hx-target="#tool-section">Active Checkouts</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -457,17 +465,177 @@ func (h *Handler) AwardBadge(c *gin.Context) {
 	_, err = h.badgeRepo.AwardBadge(user.ID, desc.ID, user.ID)
 	if err != nil {
 		c.Data(http.StatusInternalServerError, "text/html; charset=utf-8",
-			[]byte(`<div class="alert alert-danger">Failed to award badge</div>`))
+			[]byte("<div class=\"alert alert-danger\">Failed to award badge</div>"))
 		return
 	}
 
-	html := `
-<div class="alert alert-success">
-Badge "` + badgeTitle + `" awarded! 
-<button class="btn btn-sm btn-primary ms-2" hx-get="/api/user/badges" hx-target="#user-badges">
-Refresh Badges
-</button>
-</div>`
+	html := "<div class=\"alert alert-success\">" +
+		"Badge \"" + badgeTitle + "\" awarded! " +
+		"<button class=\"btn btn-sm btn-primary ms-2\" hx-get=\"/api/user/badges\" hx-target=\"#user-badges\">" +
+		"Refresh Badges" +
+		"</button>" +
+		"</div>"
+
+	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
+}
+
+// GetTools returns a list of all tools
+func (h *Handler) GetTools(c *gin.Context) {
+	tools, err := h.toolRepo.GetAllTools()
+	if err != nil {
+		c.Data(http.StatusInternalServerError, "text/html; charset=utf-8",
+			[]byte("<div class=\"alert alert-danger\">Failed to load tools</div>"))
+		return
+	}
+
+	html := "<div class=\"card\">" +
+		"<div class=\"card-header\">" +
+		"<h6>Available Tools</h6>" +
+		"</div>" +
+		"<div class=\"card-body\">" +
+		"<div class=\"row\">"
+
+	for _, tool := range tools {
+		html += "<div class=\"col-md-6 mb-3\">" +
+			"<div class=\"card border-primary\">" +
+			"<div class=\"card-body\">" +
+			"<h6 class=\"card-title\">" + tool.Name + "</h6>" +
+			"<p class=\"card-text\">Type: " + tool.Type + "</p>" +
+			"<button class=\"btn btn-success btn-sm\" " +
+			"hx-post=\"/api/tools/checkout\" " +
+			"hx-vals='{\"tool_id\":\"" + strconv.Itoa(tool.ID) + "\"}' " +
+			"hx-target=\"#tool-result\" " +
+			"hx-swap=\"innerHTML\">" +
+			"Checkout" +
+			"</button>" +
+			"</div>" +
+			"</div>" +
+			"</div>"
+	}
+
+	html += "</div>" +
+		"<div id=\"tool-result\" class=\"mt-3\"></div>" +
+		"</div>" +
+		"</div>"
+
+	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
+}
+
+// GetActiveCheckouts returns currently checked out tools
+func (h *Handler) GetActiveCheckouts(c *gin.Context) {
+	checkouts, err := h.toolRepo.GetActiveCheckouts()
+	if err != nil {
+		c.Data(http.StatusInternalServerError, "text/html; charset=utf-8",
+			[]byte("<div class=\"alert alert-danger\">Failed to load active checkouts</div>"))
+		return
+	}
+
+	html := "<div class=\"card\">" +
+		"<div class=\"card-header\">" +
+		"<h6>Currently Checked Out Tools</h6>" +
+		"</div>" +
+		"<div class=\"card-body\">"
+
+	if len(checkouts) == 0 {
+		html += "<p class=\"text-muted\">No tools currently checked out.</p>"
+	} else {
+		html += "<div class=\"list-group\">"
+		for _, checkout := range checkouts {
+			html += "<div class=\"list-group-item d-flex justify-content-between align-items-center\">" +
+				"<div>" +
+				"<h6 class=\"mb-1\">" + checkout.Tool.Name + " (" + checkout.Tool.Type + ")</h6>" +
+				"<p class=\"mb-1\">Checked out by: " + checkout.Account.Username + "</p>" +
+				"<small>Since: " + checkout.CheckoutAt.Format("2006-01-02 15:04") + "</small>" +
+				"</div>" +
+				"<button class=\"btn btn-warning btn-sm\" " +
+				"hx-post=\"/api/tools/checkin\" " +
+				"hx-vals='{\"checkout_id\":\"" + strconv.Itoa(checkout.ID) + "\"}' " +
+				"hx-target=\"#tool-result\" " +
+				"hx-swap=\"innerHTML\">" +
+				"Check In" +
+				"</button>" +
+				"</div>"
+		}
+		html += "</div>"
+	}
+
+	html += "<div id=\"tool-result\" class=\"mt-3\"></div>" +
+		"</div>" +
+		"</div>"
+
+	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
+}
+
+// CheckoutTool handles tool checkout
+func (h *Handler) CheckoutTool(c *gin.Context) {
+	user := middleware.GetCurrentUser(c)
+	toolIDStr := c.PostForm("tool_id")
+
+	toolID, err := strconv.Atoi(toolIDStr)
+	if err != nil {
+		c.Data(http.StatusBadRequest, "text/html; charset=utf-8",
+			[]byte("<div class=\"alert alert-danger\">Invalid tool ID</div>"))
+		return
+	}
+
+	// Check if tool exists
+	tool, err := h.toolRepo.FindToolByID(toolID)
+	if err != nil {
+		c.Data(http.StatusNotFound, "text/html; charset=utf-8",
+			[]byte("<div class=\"alert alert-danger\">Tool not found</div>"))
+		return
+	}
+
+	// Create checkout record
+	_, err = h.toolRepo.CheckoutTool(toolID, user.ID)
+	if err != nil {
+		c.Data(http.StatusInternalServerError, "text/html; charset=utf-8",
+			[]byte("<div class=\"alert alert-danger\">Failed to checkout tool</div>"))
+		return
+	}
+
+	// Log event
+	h.eventRepo.CreateEvent("tool", "checkout", user.ID)
+
+	html := "<div class=\"alert alert-success\">" +
+		"Successfully checked out \"" + tool.Name + "\"! " +
+		"<button class=\"btn btn-sm btn-primary ms-2\" hx-get=\"/api/tools/checkouts\" hx-target=\"#active-checkouts\">" +
+		"Refresh Checkouts" +
+		"</button>" +
+		"</div>"
+
+	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
+}
+
+// CheckinTool handles tool checkin
+func (h *Handler) CheckinTool(c *gin.Context) {
+	user := middleware.GetCurrentUser(c)
+	checkoutIDStr := c.PostForm("checkout_id")
+
+	checkoutID, err := strconv.Atoi(checkoutIDStr)
+	if err != nil {
+		c.Data(http.StatusBadRequest, "text/html; charset=utf-8",
+			[]byte("<div class=\"alert alert-danger\">Invalid checkout ID</div>"))
+		return
+	}
+
+	// Check in tool
+	err = h.toolRepo.CheckinTool(checkoutID)
+	if err != nil {
+		c.Data(http.StatusInternalServerError, "text/html; charset=utf-8",
+			[]byte("<div class=\"alert alert-danger\">Failed to check in tool: "+err.Error()+"</div>"))
+		return
+	}
+
+	// Log event
+	h.eventRepo.CreateEvent("tool", "checkin", user.ID)
+
+	html := "<div class=\"alert alert-success\">" +
+		"Tool checked in successfully! " +
+		"<button class=\"btn btn-sm btn-primary ms-2\" hx-get=\"/api/tools/checkouts\" hx-target=\"#active-checkouts\">" +
+		"Refresh Checkouts" +
+		"</button>" +
+		"</div>"
 
 	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
 }

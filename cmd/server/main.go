@@ -36,9 +36,11 @@ func main() {
 	accountRepo := models.NewAccountRepository(db.DB)
 	circleRepo := models.NewCircleRepository(db.DB)
 	badgeRepo := models.NewBadgeRepository(db.DB)
+	toolRepo := models.NewToolRepository(db.DB)
+	eventRepo := models.NewEventRepository(db.DB)
 
 	// Initialize handlers
-	handler := handlers.NewHandler(accountRepo, circleRepo, badgeRepo)
+	handler := handlers.NewHandler(accountRepo, circleRepo, badgeRepo, toolRepo, eventRepo)
 
 	// Set up Gin router
 	r := gin.New()
@@ -85,6 +87,12 @@ func main() {
 			apiProtected.GET("/badges/available", handler.GetAvailableBadges)
 			apiProtected.POST("/badges/create", handler.CreateBadge)
 			apiProtected.POST("/badges/award", handler.AwardBadge)
+			
+			// Tool management routes
+			apiProtected.GET("/tools", handler.GetTools)
+			apiProtected.GET("/tools/checkouts", handler.GetActiveCheckouts)
+			apiProtected.POST("/tools/checkout", handler.CheckoutTool)
+			apiProtected.POST("/tools/checkin", handler.CheckinTool)
 		}
 	}
 
