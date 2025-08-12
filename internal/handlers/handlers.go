@@ -49,9 +49,9 @@ func (h *Handler) Home(c *gin.Context) {
 
 	if user != nil {
 		userInfo = `
-			<div class="alert alert-info">
-				Welcome back, <strong>` + user.Username + `</strong>! 
-				<a href="/logout" class="btn btn-sm btn-outline-secondary ms-2">Logout</a>
+			<div class="p2k16-header__user">
+				<span class="p2k16-text--secondary">Welcome, <strong>` + user.Username + `</strong></span>
+				<a href="/logout" class="p2k16-button p2k16-button--secondary p2k16-button--sm">Logout</a>
 			</div>`
 	}
 
@@ -62,52 +62,60 @@ func (h *Handler) Home(c *gin.Context) {
     <title>P2K16 - Hackerspace Management System</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/styles/p2k16-design-system.css" rel="stylesheet">
 </head>
 <body>
-    <div class="container mt-4">
-        ` + userInfo + `
-        <h1>Welcome to P2K16</h1>
-        <p class="lead">Hackerspace Management System</p>
+    <header class="p2k16-header">
+        <div class="p2k16-container p2k16-header__container">
+            <a href="/" class="p2k16-header__brand">P2K16</a>
+            <nav class="p2k16-header__nav">` + userInfo + `</nav>
+        </div>
+    </header>
+    
+    <main class="p2k16-container p2k16-mt-8">
+        <div class="p2k16-text--center p2k16-mb-8">
+            <h1>Welcome to P2K16</h1>
+            <p class="p2k16-text--secondary">Hackerspace Management System</p>
+        </div>
         
-        <div class="row">
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="card-header">
-                        <h5>Quick Actions</h5>
-                    </div>
-                    <div class="card-body">`
+        <div class="p2k16-grid p2k16-grid--2-col">
+            <div class="p2k16-card">
+                <div class="p2k16-card__header">
+                    <h5 class="p2k16-card__title">Quick Actions</h5>
+                </div>
+                <div class="p2k16-card__body">`
 
 	if user == nil {
 		html += `
-                        <a href="/login" class="btn btn-primary">Login</a>`
+                        <a href="/login" class="p2k16-button p2k16-button--primary">Login</a>`
 	} else {
 		html += `
-                        <a href="/dashboard" class="btn btn-primary">Dashboard</a>
-                        <a href="/profile" class="btn btn-secondary">Profile</a>`
+                        <a href="/dashboard" class="p2k16-button p2k16-button--primary">Dashboard</a>
+                        <a href="/profile" class="p2k16-button p2k16-button--secondary p2k16-mt-4">Profile</a>`
 	}
 
 	html += `
-                        <button class="btn btn-info" hx-get="/api/members/active" hx-target="#member-list">Show Active Members</button>
+                        <button class="p2k16-button p2k16-button--secondary p2k16-mt-4" 
+                                hx-get="/api/members/active" 
+                                hx-target="#member-list">Show Active Members</button>
                     </div>
                 </div>
             </div>
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="card-header">
-                        <h5>System Status</h5>
-                    </div>
-                    <div class="card-body">`
+            <div class="p2k16-card">
+                <div class="p2k16-card__header">
+                    <h5 class="p2k16-card__title">System Status</h5>
+                </div>
+                <div class="p2k16-card__body">`
 
 	if h.demoMode {
 		html += `
-                        <span class="badge bg-warning">Demo Mode</span>
-                        <p class="mt-2">Running without database connection</p>
-                        <small class="text-muted">Use "demo" with any password, "super/super", or "foo/foo" to login</small>`
+                        <div class="p2k16-badge p2k16-badge--warning">Demo Mode</div>
+                        <p class="p2k16-mt-4">Running without database connection</p>
+                        <small class="p2k16-text--muted">Use "demo" with any password, "super/super", or "foo/foo" to login</small>`
 	} else {
 		html += `
-                        <span class="badge bg-success">Online</span>
-                        <p class="mt-2">Database connected - all systems operational</p>`
+                        <div class="p2k16-badge p2k16-badge--success">Online</div>
+                        <p class="p2k16-mt-4">Database connected - all systems operational</p>`
 	}
 
 	html += `
@@ -116,13 +124,13 @@ func (h *Handler) Home(c *gin.Context) {
             </div>
         </div>
         
-        <div class="mt-4">
+        <div class="p2k16-mt-8">
             <h4>Active Members</h4>
-            <div id="member-list">
-                <p class="text-muted">Click "Show Active Members" to load...</p>
+            <div id="member-list" class="p2k16-mt-4">
+                <p class="p2k16-text--muted">Click "Show Active Members" to load...</p>
             </div>
         </div>
-    </div>
+    </main>
 </body>
 </html>`
 
@@ -144,62 +152,68 @@ func (h *Handler) Login(c *gin.Context) {
     <title>Login - P2K16</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/styles/p2k16-design-system.css" rel="stylesheet">
 </head>
 <body>
-    <div class="container mt-5">
-        <div class="row justify-content-center">
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="card-header">
-                        <h4>Login to P2K16</h4>
-                    </div>
-                    <div class="card-body">`
+    <header class="p2k16-header">
+        <div class="p2k16-container p2k16-header__container">
+            <a href="/" class="p2k16-header__brand">P2K16</a>
+        </div>
+    </header>
+    
+    <main class="p2k16-container p2k16-container--narrow p2k16-mt-8">
+        <div class="p2k16-card">
+            <div class="p2k16-card__header">
+                <h4 class="p2k16-card__title p2k16-text--center">Login to P2K16</h4>
+            </div>
+            <div class="p2k16-card__body">`
 
 	if h.demoMode {
 		html += `
-                        <div class="alert alert-info">
+                        <div class="p2k16-alert p2k16-alert--info">
                             <strong>Demo Mode:</strong> Use "demo" with any password, "super/super", or "foo/foo"
                         </div>`
 	}
 
 	html += `
-                        <form hx-post="/api/auth/login" hx-target="#login-result" method="post" action="/api/auth/login">
-                            <div class="mb-3">
-                                <label for="username" class="form-label">Username</label>`
+                        <form class="p2k16-form" hx-post="/api/auth/login" hx-target="#login-result" method="post" action="/api/auth/login">
+                            <div class="p2k16-field">
+                                <label for="username" class="p2k16-field__label">Username</label>`
 
 	if h.demoMode {
 		html += `
-                                <input type="text" class="form-control" id="username" name="username" value="foo" required>`
+                                <input type="text" class="p2k16-field__input" id="username" name="username" value="foo" required>`
 	} else {
 		html += `
-                                <input type="text" class="form-control" id="username" name="username" required>`
+                                <input type="text" class="p2k16-field__input" id="username" name="username" required>`
 	}
 
 	html += `
                             </div>
-                            <div class="mb-3">
-                                <label for="password" class="form-label">Password</label>`
+                            <div class="p2k16-field">
+                                <label for="password" class="p2k16-field__label">Password</label>`
 
 	if h.demoMode {
 		html += `
-                                <input type="password" class="form-control" id="password" name="password" value="foo" required>`
+                                <input type="password" class="p2k16-field__input" id="password" name="password" value="foo" required>`
 	} else {
 		html += `
-                                <input type="password" class="form-control" id="password" name="password" required>`
+                                <input type="password" class="p2k16-field__input" id="password" name="password" required>`
 	}
 
 	html += `
                             </div>
-                            <button type="submit" class="btn btn-primary">Login</button>
-                            <a href="/" class="btn btn-secondary">Back to Home</a>
+                            <div class="p2k16-flex p2k16-flex--between">
+                                <button type="submit" class="p2k16-button p2k16-button--primary">Login</button>
+                                <a href="/" class="p2k16-button p2k16-button--secondary">Back to Home</a>
+                            </div>
                         </form>
-                        <div id="login-result" class="mt-3"></div>
+                        <div id="login-result" class="p2k16-mt-6"></div>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
+    </main>
 </body>
 </html>`
 
@@ -227,70 +241,81 @@ func (h *Handler) Dashboard(c *gin.Context) {
     <title>Dashboard - P2K16</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/styles/p2k16-design-system.css" rel="stylesheet">
 </head>
 <body>
-    <div class="container mt-4">
-        <div class="d-flex justify-content-between align-items-center">
+    <header class="p2k16-header">
+        <div class="p2k16-container p2k16-header__container">
+            <a href="/" class="p2k16-header__brand">P2K16</a>
+            <nav class="p2k16-header__nav">
+                <div class="p2k16-header__user">
+                    <span class="p2k16-text--secondary">Welcome, <strong>` + user.Username + `</strong></span>
+                    <a href="/logout" class="p2k16-button p2k16-button--secondary p2k16-button--sm">Logout</a>
+                </div>
+            </nav>
+        </div>
+    </header>
+    
+    <main class="p2k16-container p2k16-mt-8">
+        <div class="p2k16-mb-8">
             <h1>Dashboard</h1>
-            <div>
-                <span class="me-3">Welcome, <strong>` + user.Username + `</strong></span>
-                <a href="/logout" class="btn btn-outline-secondary">Logout</a>
-            </div>
         </div>
         
-        <div class="row mt-4">
-            <div class="col-md-3">
-                <div class="card">
-                    <div class="card-header">
-                        <h5>Your Badges</h5>
-                    </div>
-                    <div class="card-body">
-                        <div id="user-badges">
-                            <button class="btn btn-primary" hx-get="/api/user/badges" hx-target="#user-badges">Load Badges</button>
-                        </div>
+        <div class="p2k16-grid p2k16-grid--4-col">
+            <div class="p2k16-card">
+                <div class="p2k16-card__header">
+                    <h5 class="p2k16-card__title">Your Badges</h5>
+                </div>
+                <div class="p2k16-card__body">
+                    <div id="user-badges">
+                        <button class="p2k16-button p2k16-button--primary p2k16-button--full" 
+                                hx-get="/api/user/badges" 
+                                hx-target="#user-badges">Load Badges</button>
                     </div>
                 </div>
             </div>
-            <div class="col-md-3">
-                <div class="card">
-                    <div class="card-header">
-                        <h5>Tool Management</h5>
-                    </div>
-                    <div class="card-body">
-                        <div id="tool-section">
-                            <button class="btn btn-success mb-2" hx-get="/api/tools" hx-target="#tool-section">Browse Tools</button>
-                            <button class="btn btn-warning" hx-get="/api/tools/checkouts" hx-target="#tool-section">Active Checkouts</button>
-                        </div>
+            <div class="p2k16-card">
+                <div class="p2k16-card__header">
+                    <h5 class="p2k16-card__title">Tool Management</h5>
+                </div>
+                <div class="p2k16-card__body">
+                    <div id="tool-section">
+                        <button class="p2k16-button p2k16-button--success p2k16-button--full p2k16-mb-4" 
+                                hx-get="/api/tools" 
+                                hx-target="#tool-section">Browse Tools</button>
+                        <button class="p2k16-button p2k16-button--warning p2k16-button--full" 
+                                hx-get="/api/tools/checkouts" 
+                                hx-target="#tool-section">Active Checkouts</button>
                     </div>
                 </div>
             </div>
-            <div class="col-md-3">
-                <div class="card">
-                    <div class="card-header">
-                        <h5>Membership</h5>
-                    </div>
-                    <div class="card-body">
-                        <div id="membership-section">
-                            <button class="btn btn-info mb-2" hx-get="/api/membership/status" hx-target="#membership-section">My Status</button>
-                            <button class="btn btn-secondary" hx-get="/api/membership/active" hx-target="#membership-section">Active Members</button>
-                        </div>
+            <div class="p2k16-card">
+                <div class="p2k16-card__header">
+                    <h5 class="p2k16-card__title">Membership</h5>
+                </div>
+                <div class="p2k16-card__body">
+                    <div id="membership-section">
+                        <button class="p2k16-button p2k16-button--secondary p2k16-button--full p2k16-mb-4" 
+                                hx-get="/api/membership/status" 
+                                hx-target="#membership-section">My Status</button>
+                        <button class="p2k16-button p2k16-button--secondary p2k16-button--full" 
+                                hx-get="/api/membership/active" 
+                                hx-target="#membership-section">Active Members</button>
                     </div>
                 </div>
             </div>
-            <div class="col-md-3">
-                <div class="card">
-                    <div class="card-header">
-                        <h5>Quick Actions</h5>
-                    </div>
-                    <div class="card-body">
-                        <a href="/profile" class="btn btn-primary d-block mb-2">Edit Profile</a>
-                        <a href="/" class="btn btn-secondary d-block">Back to Home</a>
-                    </div>
+            <div class="p2k16-card">
+                <div class="p2k16-card__header">
+                    <h5 class="p2k16-card__title">Quick Actions</h5>
+                </div>
+                <div class="p2k16-card__body">
+                    <a href="/profile" class="p2k16-button p2k16-button--primary p2k16-button--full p2k16-mb-4">Edit Profile</a>
+                    <a href="/admin" class="p2k16-button p2k16-button--warning p2k16-button--full p2k16-mb-4">Administration</a>
+                    <a href="/" class="p2k16-button p2k16-button--secondary p2k16-button--full">Back to Home</a>
                 </div>
             </div>
         </div>
-    </div>
+    </main>
 </body>
 </html>`
 
@@ -301,16 +326,20 @@ func (h *Handler) Dashboard(c *gin.Context) {
 func (h *Handler) GetActiveMembers(c *gin.Context) {
 	// This is a placeholder - in real implementation we'd fetch from database
 	html := `
-		<div class="list-group">
-			<div class="list-group-item">
-				<h6 class="mb-1">Super Admin</h6>
-				<p class="mb-1">System Administrator</p>
-				<small>Last active: 2 hours ago</small>
+		<div class="p2k16-grid p2k16-grid--2-col">
+			<div class="p2k16-card">
+				<div class="p2k16-card__body">
+					<h6 class="p2k16-mb-4">Super Admin</h6>
+					<p class="p2k16-text--secondary p2k16-mb-4">System Administrator</p>
+					<small class="p2k16-text--muted">Last active: 2 hours ago</small>
+				</div>
 			</div>
-			<div class="list-group-item">
-				<h6 class="mb-1">Foo User</h6>
-				<p class="mb-1">Regular Member</p>
-				<small>Last active: 1 day ago</small>
+			<div class="p2k16-card">
+				<div class="p2k16-card__body">
+					<h6 class="p2k16-mb-4">Foo User</h6>
+					<p class="p2k16-text--secondary p2k16-mb-4">Regular Member</p>
+					<small class="p2k16-text--muted">Last active: 1 day ago</small>
+				</div>
 			</div>
 		</div>`
 
@@ -460,7 +489,7 @@ func (h *Handler) AuthLogin(c *gin.Context) {
 
 	// Successful login - redirect via HTMX
 	html := `
-		<div class="alert alert-success">
+		<div class="p2k16-alert p2k16-alert--success">
 			Login successful! Welcome back, ` + account.Username + `
 		</div>
 		<script>
@@ -893,4 +922,268 @@ func (h *Handler) GetActiveMembersDetailed(c *gin.Context) {
 		"</div>"
 
 	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
+}
+
+// Profile shows the user profile page (requires authentication)
+func (h *Handler) Profile(c *gin.Context) {
+user := middleware.GetCurrentUser(c)
+
+html := `
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Profile - P2K16</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <link href="/styles/p2k16-design-system.css" rel="stylesheet">
+</head>
+<body>
+    <header class="p2k16-header">
+        <div class="p2k16-container p2k16-header__container">
+            <a href="/" class="p2k16-header__brand">P2K16</a>
+            <nav class="p2k16-header__nav">
+                <div class="p2k16-header__user">
+                    <span class="p2k16-text--secondary">Welcome, <strong>` + user.Username + `</strong></span>
+                    <a href="/logout" class="p2k16-button p2k16-button--secondary p2k16-button--sm">Logout</a>
+                </div>
+            </nav>
+        </div>
+    </header>
+    
+    <main class="p2k16-container p2k16-container--narrow p2k16-mt-8">
+        <div class="p2k16-mb-8">
+            <h1>User Profile</h1>
+            <p class="p2k16-text--secondary">Manage your account settings and view your membership status</p>
+        </div>
+
+        <!-- Change Password Section -->
+        <div class="p2k16-card p2k16-mb-8">
+            <div class="p2k16-card__header">
+                <h5 class="p2k16-card__title">Change Password</h5>
+            </div>
+            <div class="p2k16-card__body">
+                <form class="p2k16-form" hx-post="/api/profile/change-password" hx-target="#password-result">
+                    <div class="p2k16-field">
+                        <label for="oldPassword" class="p2k16-field__label">Current Password</label>
+                        <input type="password" class="p2k16-field__input" id="oldPassword" name="oldPassword" required>
+                    </div>
+                    <div class="p2k16-field">
+                        <label for="newPassword" class="p2k16-field__label">New Password</label>
+                        <input type="password" class="p2k16-field__input" id="newPassword" name="newPassword" required>
+                    </div>
+                    <div class="p2k16-field">
+                        <label for="confirmPassword" class="p2k16-field__label">Confirm New Password</label>
+                        <input type="password" class="p2k16-field__input" id="confirmPassword" name="confirmPassword" required>
+                    </div>
+                    <button type="submit" class="p2k16-button p2k16-button--primary">Change Password</button>
+                </form>
+                <div id="password-result" class="p2k16-mt-6"></div>
+            </div>
+        </div>
+
+        <!-- Profile Details Section -->
+        <div class="p2k16-card p2k16-mb-8">
+            <div class="p2k16-card__header">
+                <h5 class="p2k16-card__title">Profile Details</h5>
+            </div>
+            <div class="p2k16-card__body">
+                <form class="p2k16-form" hx-post="/api/profile/update" hx-target="#profile-result">
+                    <div class="p2k16-field">
+                        <label for="name" class="p2k16-field__label">Full Name</label>
+                        <input type="text" class="p2k16-field__input" id="name" name="name" placeholder="Enter your full name">
+                        <div class="p2k16-field__help">This will be displayed on your public profile</div>
+                    </div>
+                    <div class="p2k16-field">
+                        <label for="email" class="p2k16-field__label">Email Address</label>
+                        <input type="email" class="p2k16-field__input" id="email" name="email" value="` + user.Account.Email + `" readonly>
+                        <div class="p2k16-field__help">Contact an administrator to change your email address</div>
+                    </div>
+                    <div class="p2k16-field">
+                        <label for="phone" class="p2k16-field__label">Phone Number</label>
+                        <input type="tel" class="p2k16-field__input" id="phone" name="phone" placeholder="Enter your phone number">
+                        <div class="p2k16-field__help">Used for emergency contact and door access notifications</div>
+                    </div>
+                    <button type="submit" class="p2k16-button p2k16-button--primary">Save Changes</button>
+                </form>
+                <div id="profile-result" class="p2k16-mt-6"></div>
+            </div>
+        </div>
+
+        <!-- Badges Section -->
+        <div class="p2k16-card p2k16-mb-8">
+            <div class="p2k16-card__header">
+                <h5 class="p2k16-card__title">Your Badges</h5>
+            </div>
+            <div class="p2k16-card__body">
+                <div id="profile-badges">
+                    <button class="p2k16-button p2k16-button--secondary" 
+                            hx-get="/api/user/badges" 
+                            hx-target="#profile-badges">Load Your Badges</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Navigation -->
+        <div class="p2k16-text--center">
+            <a href="/dashboard" class="p2k16-button p2k16-button--secondary">Back to Dashboard</a>
+            <a href="/" class="p2k16-button p2k16-button--secondary">Home</a>
+        </div>
+    </main>
+</body>
+</html>`
+
+c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
+}
+
+// Admin shows the admin interface (requires authentication)
+func (h *Handler) Admin(c *gin.Context) {
+user := middleware.GetCurrentUser(c)
+
+html := `
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Admin - P2K16</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <link href="/styles/p2k16-design-system.css" rel="stylesheet">
+</head>
+<body>
+    <header class="p2k16-header">
+        <div class="p2k16-container p2k16-header__container">
+            <a href="/" class="p2k16-header__brand">P2K16</a>
+            <nav class="p2k16-header__nav">
+                <div class="p2k16-header__user">
+                    <span class="p2k16-text--secondary">Welcome, <strong>` + user.Username + `</strong></span>
+                    <a href="/logout" class="p2k16-button p2k16-button--secondary p2k16-button--sm">Logout</a>
+                </div>
+            </nav>
+        </div>
+    </header>
+    
+    <main class="p2k16-container p2k16-mt-8">
+        <div class="p2k16-mb-8">
+            <h1>Administration</h1>
+            <p class="p2k16-text--secondary">Manage users, tools, badges, and system settings</p>
+        </div>
+
+        <div class="p2k16-grid p2k16-grid--3-col">
+            <!-- User Management -->
+            <div class="p2k16-card">
+                <div class="p2k16-card__header">
+                    <h5 class="p2k16-card__title">User Management</h5>
+                </div>
+                <div class="p2k16-card__body">
+                    <p class="p2k16-text--secondary p2k16-mb-6">Manage user accounts and permissions</p>
+                    <button class="p2k16-button p2k16-button--primary p2k16-button--full p2k16-mb-4" 
+                            hx-get="/api/admin/users" 
+                            hx-target="#admin-content">View All Users</button>
+                    <button class="p2k16-button p2k16-button--secondary p2k16-button--full" 
+                            hx-get="/api/admin/users/new" 
+                            hx-target="#admin-content">Create New User</button>
+                </div>
+            </div>
+
+            <!-- Badge Management -->
+            <div class="p2k16-card">
+                <div class="p2k16-card__header">
+                    <h5 class="p2k16-card__title">Badge System</h5>
+                </div>
+                <div class="p2k16-card__body">
+                    <p class="p2k16-text--secondary p2k16-mb-6">Manage badges and certifications</p>
+                    <button class="p2k16-button p2k16-button--success p2k16-button--full p2k16-mb-4" 
+                            hx-get="/api/admin/badges" 
+                            hx-target="#admin-content">Manage Badges</button>
+                    <button class="p2k16-button p2k16-button--secondary p2k16-button--full" 
+                            hx-get="/api/admin/badges/award" 
+                            hx-target="#admin-content">Award Badge</button>
+                </div>
+            </div>
+
+            <!-- Tool Management -->
+            <div class="p2k16-card">
+                <div class="p2k16-card__header">
+                    <h5 class="p2k16-card__title">Tool Management</h5>
+                </div>
+                <div class="p2k16-card__body">
+                    <p class="p2k16-text--secondary p2k16-mb-6">Manage tools and equipment</p>
+                    <button class="p2k16-button p2k16-button--warning p2k16-button--full p2k16-mb-4" 
+                            hx-get="/api/admin/tools" 
+                            hx-target="#admin-content">Manage Tools</button>
+                    <button class="p2k16-button p2k16-button--secondary p2k16-button--full" 
+                            hx-get="/api/admin/tools/new" 
+                            hx-target="#admin-content">Add New Tool</button>
+                </div>
+            </div>
+
+            <!-- Company Management -->
+            <div class="p2k16-card">
+                <div class="p2k16-card__header">
+                    <h5 class="p2k16-card__title">Companies</h5>
+                </div>
+                <div class="p2k16-card__body">
+                    <p class="p2k16-text--secondary p2k16-mb-6">Manage corporate memberships</p>
+                    <button class="p2k16-button p2k16-button--primary p2k16-button--full p2k16-mb-4" 
+                            hx-get="/api/admin/companies" 
+                            hx-target="#admin-content">View Companies</button>
+                    <button class="p2k16-button p2k16-button--secondary p2k16-button--full" 
+                            hx-get="/api/admin/companies/new" 
+                            hx-target="#admin-content">Add Company</button>
+                </div>
+            </div>
+
+            <!-- Circle Management -->
+            <div class="p2k16-card">
+                <div class="p2k16-card__header">
+                    <h5 class="p2k16-card__title">Circles</h5>
+                </div>
+                <div class="p2k16-card__body">
+                    <p class="p2k16-text--secondary p2k16-mb-6">Manage user groups and permissions</p>
+                    <button class="p2k16-button p2k16-button--primary p2k16-button--full p2k16-mb-4" 
+                            hx-get="/api/admin/circles" 
+                            hx-target="#admin-content">View Circles</button>
+                    <button class="p2k16-button p2k16-button--secondary p2k16-button--full" 
+                            hx-get="/api/admin/circles/new" 
+                            hx-target="#admin-content">Create Circle</button>
+                </div>
+            </div>
+
+            <!-- System Settings -->
+            <div class="p2k16-card">
+                <div class="p2k16-card__header">
+                    <h5 class="p2k16-card__title">System Settings</h5>
+                </div>
+                <div class="p2k16-card__body">
+                    <p class="p2k16-text--secondary p2k16-mb-6">Configure system parameters</p>
+                    <button class="p2k16-button p2k16-button--secondary p2k16-button--full p2k16-mb-4" 
+                            hx-get="/api/admin/settings" 
+                            hx-target="#admin-content">System Settings</button>
+                    <button class="p2k16-button p2k16-button--danger p2k16-button--full" 
+                            hx-get="/api/admin/logs" 
+                            hx-target="#admin-content">View Logs</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dynamic Content Area -->
+        <div class="p2k16-mt-8">
+            <div id="admin-content">
+                <div class="p2k16-card">
+                    <div class="p2k16-card__body">
+                        <p class="p2k16-text--center p2k16-text--muted">Select an action from above to get started</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Navigation -->
+        <div class="p2k16-text--center p2k16-mt-8">
+            <a href="/dashboard" class="p2k16-button p2k16-button--secondary">Back to Dashboard</a>
+            <a href="/" class="p2k16-button p2k16-button--secondary">Home</a>
+        </div>
+    </main>
+</body>
+</html>`
+
+c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
 }
