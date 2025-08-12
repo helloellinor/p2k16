@@ -661,7 +661,7 @@ func (h *Handler) GetTools(c *gin.Context) {
 			"<div class=\"card border-primary\">" +
 			"<div class=\"card-body\">" +
 			"<h6 class=\"card-title\">" + tool.Name + "</h6>" +
-			"<p class=\"card-text\">Type: " + tool.Type + "</p>" +
+			"<p class=\"card-text\">Description: " + tool.Description.String + "</p>" +
 			"<button class=\"btn btn-success btn-sm\" " +
 			"hx-post=\"/api/tools/checkout\" " +
 			"hx-vals='{\"tool_id\":\"" + strconv.Itoa(tool.ID) + "\"}' " +
@@ -704,7 +704,7 @@ func (h *Handler) GetActiveCheckouts(c *gin.Context) {
 		for _, checkout := range checkouts {
 			html += "<div class=\"list-group-item d-flex justify-content-between align-items-center\">" +
 				"<div>" +
-				"<h6 class=\"mb-1\">" + checkout.Tool.Name + " (" + checkout.Tool.Type + ")</h6>" +
+				"<h6 class=\"mb-1\">" + checkout.Tool.Name + " (" + checkout.Tool.Description.String + ")</h6>" +
 				"<p class=\"mb-1\">Checked out by: " + checkout.Account.Username + "</p>" +
 				"<small>Since: " + checkout.CheckoutAt.Format("2006-01-02 15:04") + "</small>" +
 				"</div>" +
