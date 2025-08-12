@@ -73,6 +73,16 @@ func HashPassword(password string) (string, error) {
 	return string(hash), nil
 }
 
+// SetPassword hashes and sets a new password for the account
+func (a *Account) SetPassword(password string) error {
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+	a.Password = string(hashedPassword)
+	return nil
+}
+
 // CircleRepository handles database operations for circles
 type CircleRepository struct {
 	db *sql.DB
@@ -907,4 +917,30 @@ func (r *DoorRepository) GetRecentDoorAccess(limit int) ([]DoorAccess, error) {
 	}
 
 	return accesses, nil
+}
+
+// UpdatePassword updates the password for an account
+func (r *AccountRepository) UpdatePassword(accountID int, hashedPassword string) error {
+	query := `UPDATE accounts SET password = $1, updated_at = now() WHERE id = $2`
+	_, err := r.db.Exec(query, hashedPassword, accountID)
+	return err
+}
+
+// UpdateProfile updates the profile fields for an account
+func (r *AccountRepository) UpdateProfile(account *Account) error {
+	query := `
+		UPDATE accounts 
+		SET name = $1, phone = $2, updated_at = now() 
+		WHERE id = $3`
+	
+	var name, phone interface{}
+	if account.Name.Valid {
+		name = account.Name.String
+	}
+	if account.Phone.Valid {
+		phone = account.Phone.String
+	}
+	
+	_, err := r.db.Exec(query, name, phone, account.ID)
+	return err
 }

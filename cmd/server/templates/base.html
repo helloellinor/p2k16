@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{if .title}}{{.title}} - {{end}}P2K16</title>
+    
+    <!-- HTMX -->
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    
+    <!-- Styles -->
+    <link href="/styles/p2k16-design-system.css" rel="stylesheet">
+    
+    <!-- HTMX Extensions -->
+    <script src="https://unpkg.com/htmx.org/dist/ext/json-enc.js"></script>
+    
+    <!-- Custom HTMX utilities -->
+    <script>
+        // Custom HTMX event handlers
+        document.addEventListener('htmx:beforeSwap', function(event) {
+            // Hide loading indicators before swap
+            const indicators = document.querySelectorAll('.htmx-indicator.loading');
+            indicators.forEach(indicator => indicator.classList.remove('loading'));
+        });
+        
+        document.addEventListener('htmx:beforeRequest', function(event) {
+            // Show loading indicators
+            const target = event.detail.target;
+            const indicator = target.querySelector('.htmx-indicator') || 
+                             document.querySelector(`[hx-indicator="#${target.id}"]`);
+            if (indicator) {
+                indicator.classList.add('loading');
+            }
+        });
+        
+        document.addEventListener('htmx:afterRequest', function(event) {
+            // Hide loading indicators after request
+            const indicators = document.querySelectorAll('.htmx-indicator.loading');
+            indicators.forEach(indicator => indicator.classList.remove('loading'));
+            
+            // Handle errors
+            if (event.detail.xhr.status >= 400) {
+                const errorMsg = event.detail.xhr.responseText || 'An error occurred';
+                showError(errorMsg);
+            }
+        });
+        
+        // Utility functions
+        function showError(message) {
+            const errorContainer = document.getElementById('error-container') || createErrorContainer();
+            errorContainer.innerHTML = `
+                <div class="p2k16-alert p2k16-alert--error">
+                    <button class="p2k16-alert__close" onclick="this.parentElement.remove()">×</button>
+                    ${message}
+                </div>
+            `;
+            setTimeout(() => {
+                errorContainer.innerHTML = '';
+            }, 5000);
+        }
+        
+        function showSuccess(message) {
+            const errorContainer = document.getElementById('error-container') || createErrorContainer();
+            errorContainer.innerHTML = `
+                <div class="p2k16-alert p2k16-alert--success">
+                    <button class="p2k16-alert__close" onclick="this.parentElement.remove()">×</button>
+                    ${message}
+                </div>
+            `;
+            setTimeout(() => {
+                errorContainer.innerHTML = '';
+            }, 3000);
+        }
+        
+        function createErrorContainer() {
+            const container = document.createElement('div');
+            container.id = 'error-container';
+            container.className = 'p2k16-notifications';
+            document.body.appendChild(container);
+            return container;
+        }
+    </script>
+    
+    <!-- Custom styles for HTMX components -->
+    <style>
+        .htmx-indicator {
+            display: none;
+        }
+        .htmx-indicator.loading {
+            display: inline-block;
+        }
+        .htmx-request .htmx-indicator {
+            display: inline-block;
+        }
+        
+        .p2k16-notifications {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            max-width: 400px;
+        }
+        
+        .p2k16-alert__close {
+            background: none;
+            border: none;
+            font-size: 1.2em;
+            cursor: pointer;
+            float: right;
+            padding: 0;
+            margin-left: 10px;
+        }
+        
+        .p2k16-form--loading {
+            opacity: 0.7;
+            pointer-events: none;
+        }
+        
+        .p2k16-loading-overlay {
+            position: relative;
+        }
+        
+        .p2k16-loading-overlay::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.8);
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .p2k16-loading-overlay.loading::after {
+            display: flex;
+        }
+    </style>
+</head>
+<body>
+    <!-- Global notifications container -->
+    <div id="error-container" class="p2k16-notifications"></div>
+    
+    <!-- Header -->
+    <header class="p2k16-header">
+        <div class="p2k16-container p2k16-header__container">
+            <a href="/" class="p2k16-header__brand">P2K16</a>
+            <nav class="p2k16-header__nav">
+                {{if .user}}
+                <div class="p2k16-header__user">
+                    <span class="p2k16-text--secondary">Welcome, <strong>{{.user.Username}}</strong></span>
+                    <a href="/logout" class="p2k16-button p2k16-button--secondary p2k16-button--sm">Logout</a>
+                </div>
+                {{else}}
+                <div class="p2k16-header__user">
+                    <a href="/login" class="p2k16-button p2k16-button--primary p2k16-button--sm">Login</a>
+                </div>
+                {{end}}
+            </nav>
+        </div>
+    </header>
+    
+    <!-- Main content -->
+    <main class="p2k16-container {{if .narrow}}p2k16-container--narrow{{end}} p2k16-mt-8">
+        {{template "content" .}}
+    </main>
+    
+    <!-- Footer -->
+    <footer class="p2k16-footer p2k16-mt-8">
+        <div class="p2k16-container">
+            <p class="p2k16-text--center p2k16-text--muted">
+                P2K16 - Hackerspace Management System
+                {{if .demoMode}}
+                <span class="p2k16-badge p2k16-badge--warning">Demo Mode</span>
+                {{end}}
+            </p>
+        </div>
+    </footer>
+</body>
+</html>

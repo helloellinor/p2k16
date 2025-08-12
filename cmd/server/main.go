@@ -76,6 +76,9 @@ func main() {
 		Secure:   false, // Set to true in production with HTTPS
 	})
 	r.Use(sessions.Sessions(middleware.SessionName, store))
+	
+	// Session validation middleware
+	r.Use(middleware.SessionValidationMiddleware())
 
 	// Public routes
 	r.GET("/", middleware.OptionalAuth(handler.GetAccountRepo()), handler.Home)
@@ -115,6 +118,10 @@ func main() {
 			// Membership routes
 			apiProtected.GET("/membership/status", handler.GetMembershipStatus)
 			apiProtected.GET("/membership/active", handler.GetActiveMembersDetailed)
+			
+			// Profile management routes (Phase 2)
+			apiProtected.POST("/profile/change-password", handler.ChangePassword)
+			apiProtected.POST("/profile/update", handler.UpdateProfile)
 		}
 	}
 
