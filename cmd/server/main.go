@@ -25,23 +25,35 @@ func main() {
 		SSLMode:  getEnv("DB_SSLMODE", "disable"),
 	}
 
-	// Connect to database
+	// Try to connect to database - fall back to demo mode if it fails
 	db, err := database.NewConnection(dbConfig)
+	var handler *handlers.Handler
+	var demoMode bool
+	
 	if err != nil {
-		log.Fatalf("Failed to connect to database: %v", err)
+		log.Printf("Database connection failed: %v", err)
+		log.Printf("Starting in DEMO MODE - no database required")
+		log.Printf("Use username 'demo' or 'super' with any password to login")
+		
+		// Initialize demo handlers with nil repositories
+		handler = handlers.NewHandler(nil, nil, nil, nil, nil, nil)
+		demoMode = true
+	} else {
+		log.Printf("Database connection successful")
+		defer db.Close()
+
+		// Initialize repositories
+		accountRepo := models.NewAccountRepository(db.DB)
+		circleRepo := models.NewCircleRepository(db.DB)
+		badgeRepo := models.NewBadgeRepository(db.DB)
+		toolRepo := models.NewToolRepository(db.DB)
+		eventRepo := models.NewEventRepository(db.DB)
+		membershipRepo := models.NewMembershipRepository(db.DB)
+
+		// Initialize handlers
+		handler = handlers.NewHandler(accountRepo, circleRepo, badgeRepo, toolRepo, eventRepo, membershipRepo)
+		demoMode = false
 	}
-	defer db.Close()
-
-	// Initialize repositories
-	accountRepo := models.NewAccountRepository(db.DB)
-	circleRepo := models.NewCircleRepository(db.DB)
-	badgeRepo := models.NewBadgeRepository(db.DB)
-	toolRepo := models.NewToolRepository(db.DB)
-	eventRepo := models.NewEventRepository(db.DB)
-	membershipRepo := models.NewMembershipRepository(db.DB)
-
-	// Initialize handlers
-	handler := handlers.NewHandler(accountRepo, circleRepo, badgeRepo, toolRepo, eventRepo, membershipRepo)
 
 	// Set up Gin router
 	r := gin.New()
@@ -63,13 +75,13 @@ func main() {
 	r.Use(sessions.Sessions(middleware.SessionName, store))
 
 	// Public routes
-	r.GET("/", middleware.OptionalAuth(accountRepo), handler.Home)
-	r.GET("/login", middleware.OptionalAuth(accountRepo), handler.Login)
+	r.GET("/", middleware.OptionalAuth(handler.GetAccountRepo()), handler.Home)
+	r.GET("/login", middleware.OptionalAuth(handler.GetAccountRepo()), handler.Login)
 	r.GET("/logout", handler.Logout)
 
 	// Protected routes
 	protected := r.Group("/")
-	protected.Use(middleware.RequireAuth(accountRepo))
+	protected.Use(middleware.RequireAuth(handler.GetAccountRepo()))
 	{
 		protected.GET("/dashboard", handler.Dashboard)
 	}
@@ -82,7 +94,7 @@ func main() {
 
 		// Protected API routes
 		apiProtected := api.Group("/")
-		apiProtected.Use(middleware.RequireAuth(accountRepo))
+		apiProtected.Use(middleware.RequireAuth(handler.GetAccountRepo()))
 		{
 			apiProtected.GET("/user/badges", handler.GetUserBadges)
 			apiProtected.GET("/badges/available", handler.GetAvailableBadges)
@@ -100,6 +112,9 @@ func main() {
 			apiProtected.GET("/membership/active", handler.GetActiveMembersDetailed)
 		}
 	}
+
+	// Set demo mode in handler
+	handler.SetDemoMode(demoMode)
 
 	// Start server
 	port := getEnv("PORT", "8080")

@@ -17,6 +17,7 @@ type Handler struct {
 	toolRepo       *models.ToolRepository
 	eventRepo      *models.EventRepository
 	membershipRepo *models.MembershipRepository
+	demoMode       bool
 }
 
 func NewHandler(accountRepo *models.AccountRepository, circleRepo *models.CircleRepository, badgeRepo *models.BadgeRepository, toolRepo *models.ToolRepository, eventRepo *models.EventRepository, membershipRepo *models.MembershipRepository) *Handler {
@@ -27,7 +28,18 @@ func NewHandler(accountRepo *models.AccountRepository, circleRepo *models.Circle
 		toolRepo:       toolRepo,
 		eventRepo:      eventRepo,
 		membershipRepo: membershipRepo,
+		demoMode:       false,
 	}
+}
+
+// SetDemoMode sets whether the handler is running in demo mode
+func (h *Handler) SetDemoMode(demoMode bool) {
+	h.demoMode = demoMode
+}
+
+// GetAccountRepo returns the account repository (may be nil in demo mode)
+func (h *Handler) GetAccountRepo() *models.AccountRepository {
+	return h.accountRepo
 }
 
 // Home renders the front page
@@ -85,9 +97,20 @@ func (h *Handler) Home(c *gin.Context) {
                     <div class="card-header">
                         <h5>System Status</h5>
                     </div>
-                    <div class="card-body">
+                    <div class="card-body">`
+
+	if h.demoMode {
+		html += `
+                        <span class="badge bg-warning">Demo Mode</span>
+                        <p class="mt-2">Running without database connection</p>
+                        <small class="text-muted">Use username "demo", "super", or "foo" with any password to login</small>`
+	} else {
+		html += `
                         <span class="badge bg-success">Online</span>
-                        <p class="mt-2">All systems operational</p>
+                        <p class="mt-2">Database connected - all systems operational</p>`
+	}
+
+	html += `
                     </div>
                 </div>
             </div>
@@ -131,15 +154,42 @@ func (h *Handler) Login(c *gin.Context) {
                     <div class="card-header">
                         <h4>Login to P2K16</h4>
                     </div>
-                    <div class="card-body">
+                    <div class="card-body">`
+
+	if h.demoMode {
+		html += `
+                        <div class="alert alert-info">
+                            <strong>Demo Mode:</strong> Use username "demo", "super", or "foo" with any password
+                        </div>`
+	}
+
+	html += `
                         <form hx-post="/api/auth/login" hx-target="#login-result">
                             <div class="mb-3">
-                                <label for="username" class="form-label">Username</label>
-                                <input type="text" class="form-control" id="username" name="username" required>
+                                <label for="username" class="form-label">Username</label>`
+
+	if h.demoMode {
+		html += `
+                                <input type="text" class="form-control" id="username" name="username" value="demo" required>`
+	} else {
+		html += `
+                                <input type="text" class="form-control" id="username" name="username" required>`
+	}
+
+	html += `
                             </div>
                             <div class="mb-3">
-                                <label for="password" class="form-label">Password</label>
-                                <input type="password" class="form-control" id="password" name="password" required>
+                                <label for="password" class="form-label">Password</label>`
+
+	if h.demoMode {
+		html += `
+                                <input type="password" class="form-control" id="password" name="password" value="password" required>`
+	} else {
+		html += `
+                                <input type="password" class="form-control" id="password" name="password" required>`
+	}
+
+	html += `
                             </div>
                             <button type="submit" class="btn btn-primary">Login</button>
                             <a href="/" class="btn btn-secondary">Back to Home</a>
@@ -321,6 +371,44 @@ func (h *Handler) AuthLogin(c *gin.Context) {
 		return
 	}
 
+	// Handle demo mode authentication
+	if h.demoMode || h.accountRepo == nil {
+		if username == "demo" || username == "super" || username == "foo" {
+			// Create a demo account for session
+			account := &models.Account{
+				ID:       1,
+				Username: username,
+				Email:    username + "@demo.local",
+			}
+
+			// Login user by setting session
+			if err := middleware.LoginUser(c, account); err != nil {
+				c.Data(http.StatusInternalServerError, "text/html; charset=utf-8",
+					[]byte(`<div class="alert alert-danger">Failed to login. Please try again.</div>`))
+				return
+			}
+
+			// Successful login - redirect via HTMX
+			html := `
+				<div class="alert alert-success">
+					Login successful! Welcome to demo mode, ` + account.Username + `
+				</div>
+				<script>
+					setTimeout(function() {
+						window.location.href = '/dashboard';
+					}, 1000);
+				</script>`
+
+			c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
+			return
+		}
+
+		c.Data(http.StatusUnauthorized, "text/html; charset=utf-8",
+			[]byte(`<div class="alert alert-danger">Invalid username or password. In demo mode, use "demo", "super", or "foo" with any password.</div>`))
+		return
+	}
+
+	// Normal database authentication
 	account, err := h.accountRepo.FindByUsername(username)
 	if err != nil {
 		c.Data(http.StatusUnauthorized, "text/html; charset=utf-8",

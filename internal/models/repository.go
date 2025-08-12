@@ -613,6 +613,8 @@ func (r *EventRepository) GetRecentEvents(domain string, limit int) ([]Event, er
 	}
 
 	return events, nil
+}
+
 // DoorRepository handles database operations for doors and access
 type DoorRepository struct {
 	db *sql.DB
@@ -779,5 +781,4 @@ func (r *DoorRepository) GetRecentDoorAccess(limit int) ([]DoorAccess, error) {
 	}
 
 	return accesses, nil
-}
 }
