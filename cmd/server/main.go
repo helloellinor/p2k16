@@ -4,6 +4,8 @@ import (
 	"log"
 	"os"
 
+	"github.com/gin-contrib/sessions"
+	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
 	"github.com/helloellinor/p2k16/internal/database"
 	"github.com/helloellinor/p2k16/internal/handlers"
@@ -44,15 +46,41 @@ func main() {
 	r.Use(middleware.Recovery())
 	r.Use(middleware.CORS())
 
-	// Routes
-	r.GET("/", handler.Home)
-	r.GET("/login", handler.Login)
+	// Session middleware
+	sessionSecret := getEnv("SESSION_SECRET", "p2k16-secret-key-change-in-production")
+	store := cookie.NewStore([]byte(sessionSecret))
+	store.Options(sessions.Options{
+		MaxAge:   86400 * 7, // 7 days
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   false, // Set to true in production with HTTPS
+	})
+	r.Use(sessions.Sessions(middleware.SessionName, store))
+
+	// Public routes
+	r.GET("/", middleware.OptionalAuth(accountRepo), handler.Home)
+	r.GET("/login", middleware.OptionalAuth(accountRepo), handler.Login)
+	r.GET("/logout", handler.Logout)
+
+	// Protected routes
+	protected := r.Group("/")
+	protected.Use(middleware.RequireAuth(accountRepo))
+	{
+		protected.GET("/dashboard", handler.Dashboard)
+	}
 
 	// API routes
 	api := r.Group("/api")
 	{
 		api.GET("/members/active", handler.GetActiveMembers)
 		api.POST("/auth/login", handler.AuthLogin)
+
+		// Protected API routes
+		apiProtected := api.Group("/")
+		apiProtected.Use(middleware.RequireAuth(accountRepo))
+		{
+			apiProtected.GET("/user/badges", handler.GetUserBadges)
+		}
 	}
 
 	// Start server

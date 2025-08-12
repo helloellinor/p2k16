@@ -25,6 +25,8 @@ docker
 *.test
 *.out
 go.work
+p2k16-server
+p2k16-demo
 
 # Build directories
 /dist/

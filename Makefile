@@ -1,14 +1,22 @@
 # Go + HTMX P2K16 Makefile
 
-.PHONY: build run test clean dev help
+.PHONY: build run test clean dev demo help
 
 # Build the application
 build:
 	go build -o p2k16-server ./cmd/server
 
+# Build demo application
+build-demo:
+	go build -o p2k16-demo ./cmd/demo
+
 # Run the application
 run: build
 	./p2k16-server
+
+# Run demo mode (no database required)
+demo: build-demo
+	./p2k16-demo
 
 # Run in development mode (with auto-restart would require additional tools)
 dev:
@@ -18,9 +26,13 @@ dev:
 test:
 	go test ./...
 
+# Run test utility
+test-auth:
+	go run ./cmd/test
+
 # Clean build artifacts
 clean:
-	rm -f p2k16-server
+	rm -f p2k16-server p2k16-demo
 
 # Download dependencies
 deps:
@@ -38,12 +50,15 @@ lint:
 # Show help
 help:
 	@echo "Available targets:"
-	@echo "  build  - Build the application"
-	@echo "  run    - Build and run the application"
-	@echo "  dev    - Run in development mode"
-	@echo "  test   - Run tests"
-	@echo "  clean  - Clean build artifacts"
-	@echo "  deps   - Download and tidy dependencies"
-	@echo "  fmt    - Format code"
-	@echo "  lint   - Lint code"
-	@echo "  help   - Show this help"
+	@echo "  build      - Build the application"
+	@echo "  build-demo - Build demo application"
+	@echo "  run        - Build and run the application"
+	@echo "  demo       - Build and run demo mode (no database)"
+	@echo "  dev        - Run in development mode"
+	@echo "  test       - Run tests"
+	@echo "  test-auth  - Run authentication test utility"
+	@echo "  clean      - Clean build artifacts"
+	@echo "  deps       - Download and tidy dependencies"
+	@echo "  fmt        - Format code"
+	@echo "  lint       - Lint code"
+	@echo "  help       - Show this help"
