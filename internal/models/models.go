@@ -173,3 +173,46 @@ type Event struct {
 	CreatedBy sql.NullInt64  `json:"created_by"`
 	UpdatedBy sql.NullInt64  `json:"updated_by"`
 }
+
+// Company represents a company in the system
+type Company struct {
+	ID        int           `json:"id"`
+	Name      string        `json:"name"`
+	Active    bool          `json:"active"`
+	ContactID int           `json:"contact_id"`
+	CreatedAt time.Time     `json:"created_at"`
+	UpdatedAt time.Time     `json:"updated_at"`
+	CreatedBy sql.NullInt64 `json:"created_by"`
+	UpdatedBy sql.NullInt64 `json:"updated_by"`
+
+	// Relationships
+	Contact   *Account           `json:"contact,omitempty"`
+	Employees []CompanyEmployee  `json:"employees,omitempty"`
+}
+
+// CompanyEmployee represents an employee relationship
+type CompanyEmployee struct {
+	ID        int           `json:"id"`
+	CompanyID int           `json:"company_id"`
+	AccountID int           `json:"account_id"`
+	CreatedAt time.Time     `json:"created_at"`
+	UpdatedAt time.Time     `json:"updated_at"`
+	CreatedBy sql.NullInt64 `json:"created_by"`
+	UpdatedBy sql.NullInt64 `json:"updated_by"`
+
+	// Relationships
+	Company *Company `json:"company,omitempty"`
+	Account *Account `json:"account,omitempty"`
+}
+
+// StripeCustomer represents a Stripe customer record
+type StripeCustomer struct {
+	ID           int           `json:"id"`
+	AccountID    int           `json:"account_id"`
+	StripeID     string        `json:"stripe_id"`
+	CustomerData string        `json:"customer_data"`
+	CreatedAt    time.Time     `json:"created_at"`
+	UpdatedAt    time.Time     `json:"updated_at"`
+	CreatedBy    sql.NullInt64 `json:"created_by"`
+	UpdatedBy    sql.NullInt64 `json:"updated_by"`
+}

@@ -430,6 +430,158 @@ func (r *EventRepository) CreateEvent(domain, key string, createdBy int) (*Event
 	return &event, nil
 }
 
+// MembershipRepository handles database operations for memberships
+type MembershipRepository struct {
+	db *sql.DB
+}
+
+func NewMembershipRepository(db *sql.DB) *MembershipRepository {
+	return &MembershipRepository{db: db}
+}
+
+// GetMembershipByAccount retrieves membership info for an account
+func (r *MembershipRepository) GetMembershipByAccount(accountID int) (*Membership, error) {
+	query := `
+		SELECT id, account, first_membership, start_membership, fee, membership_number,
+		       created_at, updated_at, created_by, updated_by
+		FROM membership WHERE account = $1`
+
+	var membership Membership
+	err := r.db.QueryRow(query, accountID).Scan(
+		&membership.ID, &membership.AccountID, &membership.FirstMembership, &membership.StartMembership,
+		&membership.Fee, &membership.MembershipNumber,
+		&membership.CreatedAt, &membership.UpdatedAt, &membership.CreatedBy, &membership.UpdatedBy,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &membership, nil
+}
+
+// IsAccountPayingMember checks if an account has an active Stripe payment
+func (r *MembershipRepository) IsAccountPayingMember(accountID int) (bool, error) {
+	query := `
+		SELECT COUNT(*) FROM stripe_payment 
+		WHERE created_by = $1 AND end_date >= NOW() - INTERVAL '1 day'`
+
+	var count int
+	err := r.db.QueryRow(query, accountID).Scan(&count)
+	if err != nil {
+		return false, err
+	}
+
+	return count > 0, nil
+}
+
+// IsAccountCompanyEmployee checks if an account is employed by an active company
+func (r *MembershipRepository) IsAccountCompanyEmployee(accountID int) (bool, error) {
+	query := `
+		SELECT COUNT(*) FROM company_employee ce
+		JOIN company c ON ce.company = c.id
+		WHERE ce.account = $1 AND c.active = true`
+
+	var count int
+	err := r.db.QueryRow(query, accountID).Scan(&count)
+	if err != nil {
+		return false, err
+	}
+
+	return count > 0, nil
+}
+
+// IsActiveMember checks if an account is an active member (paying or company employee)
+func (r *MembershipRepository) IsActiveMember(accountID int) (bool, error) {
+	// Check if paying member
+	isPaying, err := r.IsAccountPayingMember(accountID)
+	if err != nil {
+		return false, err
+	}
+	if isPaying {
+		return true, nil
+	}
+
+	// Check if company employee
+	isEmployee, err := r.IsAccountCompanyEmployee(accountID)
+	if err != nil {
+		return false, err
+	}
+
+	return isEmployee, nil
+}
+
+// GetActivePayingMembers retrieves all accounts with active payments
+func (r *MembershipRepository) GetActivePayingMembers() ([]Account, error) {
+	query := `
+		SELECT DISTINCT a.id, a.username, a.email, a.password, a.name, a.phone, 
+		       a.reset_token, a.reset_token_validity, a.system,
+		       a.created_at, a.updated_at, a.created_by, a.updated_by
+		FROM account a
+		JOIN stripe_payment sp ON sp.created_by = a.id
+		WHERE sp.end_date >= NOW() - INTERVAL '1 day'
+		ORDER BY a.username`
+
+	rows, err := r.db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var accounts []Account
+	for rows.Next() {
+		var account Account
+		err := rows.Scan(
+			&account.ID, &account.Username, &account.Email, &account.Password,
+			&account.Name, &account.Phone, &account.ResetToken, &account.ResetTokenValidity,
+			&account.System, &account.CreatedAt, &account.UpdatedAt, &account.CreatedBy, &account.UpdatedBy,
+		)
+		if err != nil {
+			return nil, err
+		}
+		accounts = append(accounts, account)
+	}
+
+	return accounts, nil
+}
+
+// GetActiveCompanies retrieves all active companies
+func (r *MembershipRepository) GetActiveCompanies() ([]Company, error) {
+	query := `
+		SELECT c.id, c.name, c.active, c.contact,
+		       c.created_at, c.updated_at, c.created_by, c.updated_by,
+		       a.username, a.name
+		FROM company c
+		JOIN account a ON c.contact = a.id
+		WHERE c.active = true
+		ORDER BY c.name`
+
+	rows, err := r.db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var companies []Company
+	for rows.Next() {
+		var company Company
+		var contact Account
+		err := rows.Scan(
+			&company.ID, &company.Name, &company.Active, &company.ContactID,
+			&company.CreatedAt, &company.UpdatedAt, &company.CreatedBy, &company.UpdatedBy,
+			&contact.Username, &contact.Name,
+		)
+		if err != nil {
+			return nil, err
+		}
+		contact.ID = company.ContactID
+		company.Contact = &contact
+		companies = append(companies, company)
+	}
+
+	return companies, nil
+}
+
 // GetRecentEvents retrieves recent events for a domain
 func (r *EventRepository) GetRecentEvents(domain string, limit int) ([]Event, error) {
 	query := `

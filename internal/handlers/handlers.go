@@ -11,20 +11,22 @@ import (
 )
 
 type Handler struct {
-	accountRepo *models.AccountRepository
-	circleRepo  *models.CircleRepository
-	badgeRepo   *models.BadgeRepository
-	toolRepo    *models.ToolRepository
-	eventRepo   *models.EventRepository
+	accountRepo    *models.AccountRepository
+	circleRepo     *models.CircleRepository
+	badgeRepo      *models.BadgeRepository
+	toolRepo       *models.ToolRepository
+	eventRepo      *models.EventRepository
+	membershipRepo *models.MembershipRepository
 }
 
-func NewHandler(accountRepo *models.AccountRepository, circleRepo *models.CircleRepository, badgeRepo *models.BadgeRepository, toolRepo *models.ToolRepository, eventRepo *models.EventRepository) *Handler {
+func NewHandler(accountRepo *models.AccountRepository, circleRepo *models.CircleRepository, badgeRepo *models.BadgeRepository, toolRepo *models.ToolRepository, eventRepo *models.EventRepository, membershipRepo *models.MembershipRepository) *Handler {
 	return &Handler{
-		accountRepo: accountRepo,
-		circleRepo:  circleRepo,
-		badgeRepo:   badgeRepo,
-		toolRepo:    toolRepo,
-		eventRepo:   eventRepo,
+		accountRepo:    accountRepo,
+		circleRepo:     circleRepo,
+		badgeRepo:      badgeRepo,
+		toolRepo:       toolRepo,
+		eventRepo:      eventRepo,
+		membershipRepo: membershipRepo,
 	}
 }
 
@@ -188,7 +190,7 @@ func (h *Handler) Dashboard(c *gin.Context) {
         </div>
         
         <div class="row mt-4">
-            <div class="col-md-4">
+            <div class="col-md-3">
                 <div class="card">
                     <div class="card-header">
                         <h5>Your Badges</h5>
@@ -200,7 +202,7 @@ func (h *Handler) Dashboard(c *gin.Context) {
                     </div>
                 </div>
             </div>
-            <div class="col-md-4">
+            <div class="col-md-3">
                 <div class="card">
                     <div class="card-header">
                         <h5>Tool Management</h5>
@@ -213,7 +215,20 @@ func (h *Handler) Dashboard(c *gin.Context) {
                     </div>
                 </div>
             </div>
-            <div class="col-md-4">
+            <div class="col-md-3">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>Membership</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="membership-section">
+                            <button class="btn btn-info mb-2" hx-get="/api/membership/status" hx-target="#membership-section">My Status</button>
+                            <button class="btn btn-secondary" hx-get="/api/membership/active" hx-target="#membership-section">Active Members</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
                 <div class="card">
                     <div class="card-header">
                         <h5>Quick Actions</h5>
@@ -635,6 +650,129 @@ func (h *Handler) CheckinTool(c *gin.Context) {
 		"<button class=\"btn btn-sm btn-primary ms-2\" hx-get=\"/api/tools/checkouts\" hx-target=\"#active-checkouts\">" +
 		"Refresh Checkouts" +
 		"</button>" +
+		"</div>"
+
+	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
+}
+// GetMembershipStatus returns the membership status for current user
+func (h *Handler) GetMembershipStatus(c *gin.Context) {
+	user := middleware.GetCurrentUser(c)
+
+	// Check if user is an active member
+	isActive, err := h.membershipRepo.IsActiveMember(user.ID)
+	if err != nil {
+		c.Data(http.StatusInternalServerError, "text/html; charset=utf-8",
+			[]byte("<div class=\"alert alert-danger\">Failed to check membership status</div>"))
+		return
+	}
+
+	// Check payment status
+	isPaying, _ := h.membershipRepo.IsAccountPayingMember(user.ID)
+	isEmployee, _ := h.membershipRepo.IsAccountCompanyEmployee(user.ID)
+
+	// Get membership details
+	membership, _ := h.membershipRepo.GetMembershipByAccount(user.ID)
+
+	html := "<div class=\"card\">" +
+		"<div class=\"card-header\">" +
+		"<h6>Membership Status</h6>" +
+		"</div>" +
+		"<div class=\"card-body\">"
+
+	if isActive {
+		html += "<div class=\"alert alert-success\">" +
+			"<strong>Active Member</strong>"
+		if isPaying {
+			html += " (Paying Member)"
+		}
+		if isEmployee {
+			html += " (Company Employee)"
+		}
+		html += "</div>"
+	} else {
+		html += "<div class=\"alert alert-warning\">" +
+			"<strong>Inactive Member</strong>" +
+			"</div>"
+	}
+
+	if membership != nil {
+		html += "<div class=\"mt-3\">" +
+			"<h6>Membership Details</h6>" +
+			"<p><strong>Member since:</strong> " + membership.FirstMembership.Format("2006-01-02") + "</p>" +
+			"<p><strong>Current membership start:</strong> " + membership.StartMembership.Format("2006-01-02") + "</p>" +
+			"<p><strong>Monthly fee:</strong> " + fmt.Sprintf("%.2f NOK", float64(membership.Fee)/100) + "</p>"
+		if membership.MembershipNumber.Valid {
+			html += "<p><strong>Membership number:</strong> " + fmt.Sprintf("%d", membership.MembershipNumber.Int64) + "</p>"
+		}
+		html += "</div>"
+	}
+
+	html += "</div>" +
+		"</div>"
+
+	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
+}
+
+// GetActiveMembers returns a list of active members
+func (h *Handler) GetActiveMembersDetailed(c *gin.Context) {
+	payingMembers, err := h.membershipRepo.GetActivePayingMembers()
+	if err != nil {
+		c.Data(http.StatusInternalServerError, "text/html; charset=utf-8",
+			[]byte("<div class=\"alert alert-danger\">Failed to load active members</div>"))
+		return
+	}
+
+	activeCompanies, err := h.membershipRepo.GetActiveCompanies()
+	if err != nil {
+		c.Data(http.StatusInternalServerError, "text/html; charset=utf-8",
+			[]byte("<div class=\"alert alert-danger\">Failed to load companies</div>"))
+		return
+	}
+
+	html := "<div class=\"card\">" +
+		"<div class=\"card-header\">" +
+		"<h6>Active Members</h6>" +
+		"</div>" +
+		"<div class=\"card-body\">"
+
+	// Show paying members
+	if len(payingMembers) > 0 {
+		html += "<h6 class=\"text-success\">Paying Members (" + fmt.Sprintf("%d", len(payingMembers)) + ")</h6>" +
+			"<div class=\"row\">"
+		for _, member := range payingMembers {
+			displayName := member.Username
+			if member.Name.Valid && member.Name.String != "" {
+				displayName = member.Name.String + " (" + member.Username + ")"
+			}
+			html += "<div class=\"col-md-6 mb-2\">" +
+				"<span class=\"badge bg-success\">" + displayName + "</span>" +
+				"</div>"
+		}
+		html += "</div>"
+	}
+
+	// Show companies
+	if len(activeCompanies) > 0 {
+		html += "<h6 class=\"text-primary mt-3\">Active Companies (" + fmt.Sprintf("%d", len(activeCompanies)) + ")</h6>" +
+			"<div class=\"list-group\">"
+		for _, company := range activeCompanies {
+			contactName := company.Contact.Username
+			if company.Contact.Name.Valid && company.Contact.Name.String != "" {
+				contactName = company.Contact.Name.String
+			}
+			html += "<div class=\"list-group-item\">" +
+				"<h6 class=\"mb-1\">" + company.Name + "</h6>" +
+				"<p class=\"mb-1\">Contact: " + contactName + "</p>" +
+				"</div>"
+		}
+		html += "</div>"
+	}
+
+	if len(payingMembers) == 0 && len(activeCompanies) == 0 {
+		html += "<p class=\"text-muted\">No active members found.</p>"
+	}
+
+	html += "</div>" +
 		"</div>"
 
 	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
