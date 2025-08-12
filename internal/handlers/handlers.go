@@ -49,9 +49,9 @@ func (h *Handler) Home(c *gin.Context) {
 
 	if user != nil {
 		userInfo = `
-			<div class="alert alert-info">
-				Welcome back, <strong>` + user.Username + `</strong>! 
-				<a href="/logout" class="btn btn-sm btn-outline-secondary ms-2">Logout</a>
+			<div class="p2k16-header__user">
+				<span class="p2k16-text--secondary">Welcome, <strong>` + user.Username + `</strong></span>
+				<a href="/logout" class="p2k16-button p2k16-button--secondary p2k16-button--sm">Logout</a>
 			</div>`
 	}
 
@@ -62,52 +62,60 @@ func (h *Handler) Home(c *gin.Context) {
     <title>P2K16 - Hackerspace Management System</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/styles/p2k16-design-system.css" rel="stylesheet">
 </head>
 <body>
-    <div class="container mt-4">
-        ` + userInfo + `
-        <h1>Welcome to P2K16</h1>
-        <p class="lead">Hackerspace Management System</p>
+    <header class="p2k16-header">
+        <div class="p2k16-container p2k16-header__container">
+            <a href="/" class="p2k16-header__brand">P2K16</a>
+            <nav class="p2k16-header__nav">` + userInfo + `</nav>
+        </div>
+    </header>
+    
+    <main class="p2k16-container p2k16-mt-8">
+        <div class="p2k16-text--center p2k16-mb-8">
+            <h1>Welcome to P2K16</h1>
+            <p class="p2k16-text--secondary">Hackerspace Management System</p>
+        </div>
         
-        <div class="row">
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="card-header">
-                        <h5>Quick Actions</h5>
-                    </div>
-                    <div class="card-body">`
+        <div class="p2k16-grid p2k16-grid--2-col">
+            <div class="p2k16-card">
+                <div class="p2k16-card__header">
+                    <h5 class="p2k16-card__title">Quick Actions</h5>
+                </div>
+                <div class="p2k16-card__body">`
 
 	if user == nil {
 		html += `
-                        <a href="/login" class="btn btn-primary">Login</a>`
+                        <a href="/login" class="p2k16-button p2k16-button--primary">Login</a>`
 	} else {
 		html += `
-                        <a href="/dashboard" class="btn btn-primary">Dashboard</a>
-                        <a href="/profile" class="btn btn-secondary">Profile</a>`
+                        <a href="/dashboard" class="p2k16-button p2k16-button--primary">Dashboard</a>
+                        <a href="/profile" class="p2k16-button p2k16-button--secondary p2k16-mt-4">Profile</a>`
 	}
 
 	html += `
-                        <button class="btn btn-info" hx-get="/api/members/active" hx-target="#member-list">Show Active Members</button>
+                        <button class="p2k16-button p2k16-button--secondary p2k16-mt-4" 
+                                hx-get="/api/members/active" 
+                                hx-target="#member-list">Show Active Members</button>
                     </div>
                 </div>
             </div>
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="card-header">
-                        <h5>System Status</h5>
-                    </div>
-                    <div class="card-body">`
+            <div class="p2k16-card">
+                <div class="p2k16-card__header">
+                    <h5 class="p2k16-card__title">System Status</h5>
+                </div>
+                <div class="p2k16-card__body">`
 
 	if h.demoMode {
 		html += `
-                        <span class="badge bg-warning">Demo Mode</span>
-                        <p class="mt-2">Running without database connection</p>
-                        <small class="text-muted">Use "demo" with any password, "super/super", or "foo/foo" to login</small>`
+                        <div class="p2k16-badge p2k16-badge--warning">Demo Mode</div>
+                        <p class="p2k16-mt-4">Running without database connection</p>
+                        <small class="p2k16-text--muted">Use "demo" with any password, "super/super", or "foo/foo" to login</small>`
 	} else {
 		html += `
-                        <span class="badge bg-success">Online</span>
-                        <p class="mt-2">Database connected - all systems operational</p>`
+                        <div class="p2k16-badge p2k16-badge--success">Online</div>
+                        <p class="p2k16-mt-4">Database connected - all systems operational</p>`
 	}
 
 	html += `
@@ -116,13 +124,13 @@ func (h *Handler) Home(c *gin.Context) {
             </div>
         </div>
         
-        <div class="mt-4">
+        <div class="p2k16-mt-8">
             <h4>Active Members</h4>
-            <div id="member-list">
-                <p class="text-muted">Click "Show Active Members" to load...</p>
+            <div id="member-list" class="p2k16-mt-4">
+                <p class="p2k16-text--muted">Click "Show Active Members" to load...</p>
             </div>
         </div>
-    </div>
+    </main>
 </body>
 </html>`
 
@@ -144,62 +152,68 @@ func (h *Handler) Login(c *gin.Context) {
     <title>Login - P2K16</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/styles/p2k16-design-system.css" rel="stylesheet">
 </head>
 <body>
-    <div class="container mt-5">
-        <div class="row justify-content-center">
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="card-header">
-                        <h4>Login to P2K16</h4>
-                    </div>
-                    <div class="card-body">`
+    <header class="p2k16-header">
+        <div class="p2k16-container p2k16-header__container">
+            <a href="/" class="p2k16-header__brand">P2K16</a>
+        </div>
+    </header>
+    
+    <main class="p2k16-container p2k16-container--narrow p2k16-mt-8">
+        <div class="p2k16-card">
+            <div class="p2k16-card__header">
+                <h4 class="p2k16-card__title p2k16-text--center">Login to P2K16</h4>
+            </div>
+            <div class="p2k16-card__body">`
 
 	if h.demoMode {
 		html += `
-                        <div class="alert alert-info">
+                        <div class="p2k16-alert p2k16-alert--info">
                             <strong>Demo Mode:</strong> Use "demo" with any password, "super/super", or "foo/foo"
                         </div>`
 	}
 
 	html += `
-                        <form hx-post="/api/auth/login" hx-target="#login-result" method="post" action="/api/auth/login">
-                            <div class="mb-3">
-                                <label for="username" class="form-label">Username</label>`
+                        <form class="p2k16-form" hx-post="/api/auth/login" hx-target="#login-result" method="post" action="/api/auth/login">
+                            <div class="p2k16-field">
+                                <label for="username" class="p2k16-field__label">Username</label>`
 
 	if h.demoMode {
 		html += `
-                                <input type="text" class="form-control" id="username" name="username" value="foo" required>`
+                                <input type="text" class="p2k16-field__input" id="username" name="username" value="foo" required>`
 	} else {
 		html += `
-                                <input type="text" class="form-control" id="username" name="username" required>`
+                                <input type="text" class="p2k16-field__input" id="username" name="username" required>`
 	}
 
 	html += `
                             </div>
-                            <div class="mb-3">
-                                <label for="password" class="form-label">Password</label>`
+                            <div class="p2k16-field">
+                                <label for="password" class="p2k16-field__label">Password</label>`
 
 	if h.demoMode {
 		html += `
-                                <input type="password" class="form-control" id="password" name="password" value="foo" required>`
+                                <input type="password" class="p2k16-field__input" id="password" name="password" value="foo" required>`
 	} else {
 		html += `
-                                <input type="password" class="form-control" id="password" name="password" required>`
+                                <input type="password" class="p2k16-field__input" id="password" name="password" required>`
 	}
 
 	html += `
                             </div>
-                            <button type="submit" class="btn btn-primary">Login</button>
-                            <a href="/" class="btn btn-secondary">Back to Home</a>
+                            <div class="p2k16-flex p2k16-flex--between">
+                                <button type="submit" class="p2k16-button p2k16-button--primary">Login</button>
+                                <a href="/" class="p2k16-button p2k16-button--secondary">Back to Home</a>
+                            </div>
                         </form>
-                        <div id="login-result" class="mt-3"></div>
+                        <div id="login-result" class="p2k16-mt-6"></div>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
+    </main>
 </body>
 </html>`
 
@@ -227,70 +241,80 @@ func (h *Handler) Dashboard(c *gin.Context) {
     <title>Dashboard - P2K16</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/styles/p2k16-design-system.css" rel="stylesheet">
 </head>
 <body>
-    <div class="container mt-4">
-        <div class="d-flex justify-content-between align-items-center">
+    <header class="p2k16-header">
+        <div class="p2k16-container p2k16-header__container">
+            <a href="/" class="p2k16-header__brand">P2K16</a>
+            <nav class="p2k16-header__nav">
+                <div class="p2k16-header__user">
+                    <span class="p2k16-text--secondary">Welcome, <strong>` + user.Username + `</strong></span>
+                    <a href="/logout" class="p2k16-button p2k16-button--secondary p2k16-button--sm">Logout</a>
+                </div>
+            </nav>
+        </div>
+    </header>
+    
+    <main class="p2k16-container p2k16-mt-8">
+        <div class="p2k16-mb-8">
             <h1>Dashboard</h1>
-            <div>
-                <span class="me-3">Welcome, <strong>` + user.Username + `</strong></span>
-                <a href="/logout" class="btn btn-outline-secondary">Logout</a>
-            </div>
         </div>
         
-        <div class="row mt-4">
-            <div class="col-md-3">
-                <div class="card">
-                    <div class="card-header">
-                        <h5>Your Badges</h5>
-                    </div>
-                    <div class="card-body">
-                        <div id="user-badges">
-                            <button class="btn btn-primary" hx-get="/api/user/badges" hx-target="#user-badges">Load Badges</button>
-                        </div>
+        <div class="p2k16-grid p2k16-grid--4-col">
+            <div class="p2k16-card">
+                <div class="p2k16-card__header">
+                    <h5 class="p2k16-card__title">Your Badges</h5>
+                </div>
+                <div class="p2k16-card__body">
+                    <div id="user-badges">
+                        <button class="p2k16-button p2k16-button--primary p2k16-button--full" 
+                                hx-get="/api/user/badges" 
+                                hx-target="#user-badges">Load Badges</button>
                     </div>
                 </div>
             </div>
-            <div class="col-md-3">
-                <div class="card">
-                    <div class="card-header">
-                        <h5>Tool Management</h5>
-                    </div>
-                    <div class="card-body">
-                        <div id="tool-section">
-                            <button class="btn btn-success mb-2" hx-get="/api/tools" hx-target="#tool-section">Browse Tools</button>
-                            <button class="btn btn-warning" hx-get="/api/tools/checkouts" hx-target="#tool-section">Active Checkouts</button>
-                        </div>
+            <div class="p2k16-card">
+                <div class="p2k16-card__header">
+                    <h5 class="p2k16-card__title">Tool Management</h5>
+                </div>
+                <div class="p2k16-card__body">
+                    <div id="tool-section">
+                        <button class="p2k16-button p2k16-button--success p2k16-button--full p2k16-mb-4" 
+                                hx-get="/api/tools" 
+                                hx-target="#tool-section">Browse Tools</button>
+                        <button class="p2k16-button p2k16-button--warning p2k16-button--full" 
+                                hx-get="/api/tools/checkouts" 
+                                hx-target="#tool-section">Active Checkouts</button>
                     </div>
                 </div>
             </div>
-            <div class="col-md-3">
-                <div class="card">
-                    <div class="card-header">
-                        <h5>Membership</h5>
-                    </div>
-                    <div class="card-body">
-                        <div id="membership-section">
-                            <button class="btn btn-info mb-2" hx-get="/api/membership/status" hx-target="#membership-section">My Status</button>
-                            <button class="btn btn-secondary" hx-get="/api/membership/active" hx-target="#membership-section">Active Members</button>
-                        </div>
+            <div class="p2k16-card">
+                <div class="p2k16-card__header">
+                    <h5 class="p2k16-card__title">Membership</h5>
+                </div>
+                <div class="p2k16-card__body">
+                    <div id="membership-section">
+                        <button class="p2k16-button p2k16-button--secondary p2k16-button--full p2k16-mb-4" 
+                                hx-get="/api/membership/status" 
+                                hx-target="#membership-section">My Status</button>
+                        <button class="p2k16-button p2k16-button--secondary p2k16-button--full" 
+                                hx-get="/api/membership/active" 
+                                hx-target="#membership-section">Active Members</button>
                     </div>
                 </div>
             </div>
-            <div class="col-md-3">
-                <div class="card">
-                    <div class="card-header">
-                        <h5>Quick Actions</h5>
-                    </div>
-                    <div class="card-body">
-                        <a href="/profile" class="btn btn-primary d-block mb-2">Edit Profile</a>
-                        <a href="/" class="btn btn-secondary d-block">Back to Home</a>
-                    </div>
+            <div class="p2k16-card">
+                <div class="p2k16-card__header">
+                    <h5 class="p2k16-card__title">Quick Actions</h5>
+                </div>
+                <div class="p2k16-card__body">
+                    <a href="/profile" class="p2k16-button p2k16-button--primary p2k16-button--full p2k16-mb-4">Edit Profile</a>
+                    <a href="/" class="p2k16-button p2k16-button--secondary p2k16-button--full">Back to Home</a>
                 </div>
             </div>
         </div>
-    </div>
+    </main>
 </body>
 </html>`
 
@@ -301,16 +325,20 @@ func (h *Handler) Dashboard(c *gin.Context) {
 func (h *Handler) GetActiveMembers(c *gin.Context) {
 	// This is a placeholder - in real implementation we'd fetch from database
 	html := `
-		<div class="list-group">
-			<div class="list-group-item">
-				<h6 class="mb-1">Super Admin</h6>
-				<p class="mb-1">System Administrator</p>
-				<small>Last active: 2 hours ago</small>
+		<div class="p2k16-grid p2k16-grid--2-col">
+			<div class="p2k16-card">
+				<div class="p2k16-card__body">
+					<h6 class="p2k16-mb-4">Super Admin</h6>
+					<p class="p2k16-text--secondary p2k16-mb-4">System Administrator</p>
+					<small class="p2k16-text--muted">Last active: 2 hours ago</small>
+				</div>
 			</div>
-			<div class="list-group-item">
-				<h6 class="mb-1">Foo User</h6>
-				<p class="mb-1">Regular Member</p>
-				<small>Last active: 1 day ago</small>
+			<div class="p2k16-card">
+				<div class="p2k16-card__body">
+					<h6 class="p2k16-mb-4">Foo User</h6>
+					<p class="p2k16-text--secondary p2k16-mb-4">Regular Member</p>
+					<small class="p2k16-text--muted">Last active: 1 day ago</small>
+				</div>
 			</div>
 		</div>`
 
@@ -460,7 +488,7 @@ func (h *Handler) AuthLogin(c *gin.Context) {
 
 	// Successful login - redirect via HTMX
 	html := `
-		<div class="alert alert-success">
+		<div class="p2k16-alert p2k16-alert--success">
 			Login successful! Welcome back, ` + account.Username + `
 		</div>
 		<script>

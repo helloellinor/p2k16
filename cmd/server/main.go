@@ -63,6 +63,9 @@ func main() {
 	r.Use(middleware.Recovery())
 	r.Use(middleware.CORS())
 
+	// Serve static files
+	r.Static("/styles", "./styles")
+
 	// Session middleware
 	sessionSecret := getEnv("SESSION_SECRET", "p2k16-secret-key-change-in-production")
 	store := cookie.NewStore([]byte(sessionSecret))
