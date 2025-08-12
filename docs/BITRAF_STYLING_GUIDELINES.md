@@ -13,7 +13,7 @@ This document extracts key design elements and patterns from bitraf.no to create
 - Professional yet approachable interface
 
 ### 2. **Typography Philosophy**
-- **Primary Font**: Roboto family for modern, technical appearance
+- **Primary Font**: Ubuntu family for modern, technical appearance
 - **Weight Hierarchy**: Light (300), Regular (400), Medium (500), Bold (700)
 - **Text Transform**: Strategic use of UPPERCASE for navigation and headers
 - **Letter Spacing**: Subtle spacing (0.1px) for improved readability
@@ -57,7 +57,7 @@ This document extracts key design elements and patterns from bitraf.no to create
 
 ### Font Stack
 ```css
-font-family: "Roboto", -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+font-family: "Ubuntu", -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
 ```
 
 ### Type Scale (Bitraf-inspired)
@@ -85,7 +85,7 @@ font-family: "Roboto", -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica
 ```css
 .p2k16-nav {
   background-color: var(--bg-dark);
-  font-family: "Roboto", sans-serif;
+  font-family: "Ubuntu", sans-serif;
   font-weight: 400;
   text-transform: uppercase;
   letter-spacing: 0.1px;
@@ -107,7 +107,7 @@ font-family: "Roboto", -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica
 ### Button Styles
 ```css
 .p2k16-button {
-  font-family: "Roboto", sans-serif;
+  font-family: "Ubuntu", sans-serif;
   font-weight: 600;
   font-size: 12px;
   line-height: 24px;
@@ -140,7 +140,7 @@ font-family: "Roboto", -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica
 ### Form Elements
 ```css
 .p2k16-input {
-  font-family: "Roboto", sans-serif;
+  font-family: "Ubuntu", sans-serif;
   font-size: 14px;
   padding: 8px 12px;
   border: 1px solid var(--border-subtle);
@@ -156,7 +156,7 @@ font-family: "Roboto", -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica
 }
 
 .p2k16-label {
-  font-family: "Roboto", sans-serif;
+  font-family: "Ubuntu", sans-serif;
   font-weight: 600;
   font-size: 12px;
   color: var(--text-primary);
@@ -181,7 +181,7 @@ font-family: "Roboto", -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica
 }
 
 .p2k16-card__title {
-  font-family: "Roboto", sans-serif;
+  font-family: "Ubuntu", sans-serif;
   font-weight: 700;
   font-size: 14px;
   color: var(--text-primary);
@@ -194,7 +194,7 @@ font-family: "Roboto", -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica
 .p2k16-status {
   display: inline-flex;
   align-items: center;
-  font-family: "Roboto", sans-serif;
+  font-family: "Ubuntu", sans-serif;
   font-weight: 600;
   font-size: 12px;
   line-height: 18px;
@@ -364,7 +364,7 @@ font-family: "Roboto", -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica
 
 ### Phase 1: Foundation
 - [ ] Implement CSS custom properties for color palette
-- [ ] Set up Roboto font loading strategy
+- [ ] Set up Ubuntu font loading strategy
 - [ ] Create base typography styles
 - [ ] Establish spacing system
 
