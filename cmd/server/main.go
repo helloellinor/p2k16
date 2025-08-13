@@ -2,16 +2,16 @@ package main
 
 import (
 	"log"
+	"net/http"
 	"os"
 	"strconv"
 
-	"github.com/gin-contrib/sessions"
-	"github.com/gin-contrib/sessions/cookie"
-	"github.com/gin-gonic/gin"
+	"github.com/go-chi/chi/v5"
 	"github.com/helloellinor/p2k16/internal/database"
 	"github.com/helloellinor/p2k16/internal/handlers"
 	"github.com/helloellinor/p2k16/internal/middleware"
 	"github.com/helloellinor/p2k16/internal/models"
+	"github.com/helloellinor/p2k16/internal/session"
 )
 
 func main() {
@@ -45,104 +45,98 @@ func main() {
 	eventRepo := models.NewEventRepository(db.DB)
 	membershipRepo := models.NewMembershipRepository(db.DB)
 
-	// Initialize handlers
-	handler := handlers.NewHandler(accountRepo, circleRepo, badgeRepo, toolRepo, eventRepo, membershipRepo)
+	// Initialize session manager
+	sessionManager := session.NewChiSessionManager()
 
-	// Set up Gin router
-	r := gin.New()
+	// Initialize handlers
+	handler := handlers.NewChiHandler(accountRepo, circleRepo, badgeRepo, toolRepo, eventRepo, membershipRepo, sessionManager)
+
+	// Set up Chi router
+	r := chi.NewRouter()
 
 	// Add middleware
-	r.Use(middleware.Logger())
-	r.Use(middleware.Recovery())
-	r.Use(middleware.CORS())
+	r.Use(middleware.ChiLogger())
+	r.Use(middleware.ChiRecovery())
+	r.Use(middleware.ChiCORS())
+	r.Use(sessionManager.LoadAndSave)
 
 	// Serve static files
-	r.Static("/styles", "./styles")
-
-	// Session middleware
-	sessionSecret := getEnv("SESSION_SECRET", "p2k16-secret-key-change-in-production")
-	store := cookie.NewStore([]byte(sessionSecret))
-	store.Options(sessions.Options{
-		MaxAge:   86400 * 7, // 7 days
-		Path:     "/",
-		HttpOnly: true,
-		Secure:   false, // Set to true in production with HTTPS
-	})
-	r.Use(sessions.Sessions(middleware.SessionName, store))
+	r.Handle("/styles/*", http.StripPrefix("/styles/", http.FileServer(http.Dir("./styles"))))
 
 	// Public routes
-	r.GET("/", middleware.OptionalAuth(handler.GetAccountRepo()), handler.Home)
-	r.GET("/login", middleware.OptionalAuth(handler.GetAccountRepo()), handler.Login)
-	r.POST("/logout", handler.Logout)
+	r.Group(func(r chi.Router) {
+		r.Use(middleware.ChiOptionalAuth(sessionManager, handler.GetAccountRepo()))
+		r.Get("/", handler.ChiHome)
+		r.Get("/login", handler.ChiLogin)
+	})
+
+	// Logout route (no auth required, just clears session)
+	r.Post("/logout", handler.ChiLogout)
 
 	// Protected routes
-	protected := r.Group("/")
-	protected.Use(middleware.RequireAuth(handler.GetAccountRepo()))
-	{
-		protected.GET("/dashboard", handler.Dashboard)
-		protected.GET("/profile", handler.Profile)
-		protected.GET("/admin", handler.Admin)
+	r.Group(func(r chi.Router) {
+		r.Use(middleware.ChiRequireAuth(sessionManager, handler.GetAccountRepo()))
+		
+		r.Get("/dashboard", handler.ChiDashboard)
+		r.Get("/profile", handler.ChiProfile)
+		r.Get("/admin", handler.ChiAdmin)
 
 		// Admin routes
-		protected.GET("/admin/users", handler.AdminUsers)
-		protected.GET("/admin/tools", handler.AdminTools)
-		protected.GET("/admin/companies", handler.AdminCompanies)
-		protected.GET("/admin/circles", handler.AdminCircles)
-		protected.GET("/admin/logs", handler.AdminLogs)
-		protected.GET("/admin/config", handler.AdminConfig)
+		r.Get("/admin/users", handler.ChiAdminUsers)
+		r.Get("/admin/tools", handler.ChiAdminTools)
+		r.Get("/admin/companies", handler.ChiAdminCompanies)
+		r.Get("/admin/circles", handler.ChiAdminCircles)
+		r.Get("/admin/logs", handler.ChiAdminLogs)
+		r.Get("/admin/config", handler.ChiAdminConfig)
 
 		// Profile management endpoints
-		protected.POST("/profile/change-password", handler.ChangePassword)
-		protected.POST("/profile/update", handler.UpdateProfile)
-		// Remove these from protected, add to /api group below
-	}
+		r.Post("/profile/change-password", handler.ChiChangePassword)
+		r.Post("/profile/update", handler.ChiUpdateProfile)
+	})
 
 	// API routes
-	api := r.Group("/api")
-	{
-		api.GET("/members/active", handler.GetActiveMembers)
-		api.POST("/auth/login", handler.AuthLogin)
+	r.Route("/api", func(r chi.Router) {
+		r.Get("/members/active", handler.ChiGetActiveMembers)
+		r.Post("/auth/login", handler.ChiAuthLogin)
 
 		// Protected API routes
-		apiProtected := api.Group("/")
-		apiProtected.Use(middleware.RequireAuth(handler.GetAccountRepo()))
-		{
+		r.Group(func(r chi.Router) {
+			r.Use(middleware.ChiRequireAuth(sessionManager, handler.GetAccountRepo()))
+			
 			// Account management endpoints
-			apiProtected.GET("/accounts", handler.GetAccounts)
-			apiProtected.GET("/accounts/:id", handler.GetAccount)
+			r.Get("/accounts", handler.ChiGetAccounts)
+			r.Get("/accounts/{id}", handler.ChiGetAccount)
 
 			// Badge management endpoints
-			apiProtected.GET("/badges", handler.GetBadges)
-			apiProtected.GET("/user/badges", handler.GetUserBadges)
-			apiProtected.GET("/badges/available", handler.GetAvailableBadges)
-			apiProtected.POST("/badges/create", handler.CreateBadge)
-			apiProtected.POST("/badges/award", handler.AwardBadge)
+			r.Get("/badges", handler.ChiGetBadges)
+			r.Get("/user/badges", handler.ChiGetUserBadges)
+			r.Get("/badges/available", handler.ChiGetAvailableBadges)
+			r.Post("/badges/create", handler.ChiCreateBadge)
+			r.Post("/badges/award", handler.ChiAwardBadge)
 
 			// Membership endpoints
-			apiProtected.GET("/memberships", handler.GetMembershipStatusAPI)
-			apiProtected.GET("/membership/status", handler.GetMembershipStatus)
-			apiProtected.GET("/membership/active", handler.GetActiveMembersDetailed)
+			r.Get("/memberships", handler.ChiGetMembershipStatusAPI)
+			r.Get("/membership/status", handler.ChiGetMembershipStatus)
+			r.Get("/membership/active", handler.ChiGetActiveMembersDetailed)
 
 			// Tool management routes
-			apiProtected.GET("/tools", handler.GetTools)
-			apiProtected.GET("/tools/checkouts", handler.GetActiveCheckouts)
-			apiProtected.POST("/tools/checkout", handler.CheckoutTool)
-			apiProtected.POST("/tools/checkin", handler.CheckinTool)
+			r.Get("/tools", handler.ChiGetTools)
+			r.Get("/tools/checkouts", handler.ChiGetActiveCheckouts)
+			r.Post("/tools/checkout", handler.ChiCheckoutTool)
+			r.Post("/tools/checkin", handler.ChiCheckinTool)
 
 			// Profile card flip endpoints for HTMX
-			apiProtected.GET("/profile/card/front", handler.ProfileCardFront)
-			apiProtected.GET("/profile/card/back", handler.ProfileCardBack)
-		}
-	}
-
-	// Demo mode has been removed - server requires database connection
+			r.Get("/profile/card/front", handler.ChiProfileCardFront)
+			r.Get("/profile/card/back", handler.ChiProfileCardBack)
+		})
+	})
 
 	// Start server
 	port := getEnv("PORT", "8080")
 	log.Printf("Starting server on port %s", port)
 	log.Printf("Application will be available at http://localhost:%s", port)
 
-	if err := r.Run(":" + port); err != nil {
+	if err := http.ListenAndServe(":"+port, r); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
 }
