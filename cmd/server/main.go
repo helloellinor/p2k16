@@ -25,7 +25,7 @@ func main() {
 		SSLMode:  getEnv("DB_SSLMODE", "disable"),
 	}
 
-	// Connect to database - exit if connection fails 
+	// Connect to database - exit if connection fails
 	db, err := database.NewConnection(dbConfig)
 	if err != nil {
 		log.Printf("❌ Database connection failed: %v", err)
@@ -33,7 +33,7 @@ func main() {
 		log.Printf("🔧 Database config: %s@%s:%d/%s", dbConfig.User, dbConfig.Host, dbConfig.Port, dbConfig.DBName)
 		log.Fatalf("Cannot start server without database connection")
 	}
-	
+
 	log.Printf("✅ Database connection successful")
 	defer db.Close()
 
@@ -98,13 +98,13 @@ func main() {
 			apiProtected.GET("/badges/available", handler.GetAvailableBadges)
 			apiProtected.POST("/badges/create", handler.CreateBadge)
 			apiProtected.POST("/badges/award", handler.AwardBadge)
-			
+
 			// Tool management routes
 			apiProtected.GET("/tools", handler.GetTools)
 			apiProtected.GET("/tools/checkouts", handler.GetActiveCheckouts)
 			apiProtected.POST("/tools/checkout", handler.CheckoutTool)
 			apiProtected.POST("/tools/checkin", handler.CheckinTool)
-			
+
 			// Membership routes
 			apiProtected.GET("/membership/status", handler.GetMembershipStatus)
 			apiProtected.GET("/membership/active", handler.GetActiveMembersDetailed)

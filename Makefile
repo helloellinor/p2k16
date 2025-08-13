@@ -5,8 +5,8 @@
 # Defaults for runtime configuration (override on the command line)
 DB_HOST ?= localhost
 DB_PORT ?= 2016
-DB_USER ?= p2k16-web
-DB_PASSWORD ?= p2k16-web
+DB_USER ?= postgres
+DB_PASSWORD ?= postgres
 DB_NAME ?= p2k16
 PORT ?= 8080
 
