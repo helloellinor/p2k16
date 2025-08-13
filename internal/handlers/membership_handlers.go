@@ -63,6 +63,51 @@ func (h *Handler) GetMembershipStatus(c *gin.Context) {
 	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
 }
 
+// GetMembershipStatusAPI returns the membership status for current user as JSON (API endpoint: GET /api/memberships/)
+func (h *Handler) GetMembershipStatusAPI(c *gin.Context) {
+	user := middleware.GetCurrentUser(c)
+
+	// Check if user is an active member
+	isActive, err := h.membershipRepo.IsActiveMember(user.ID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status":  "error",
+			"message": "Failed to check membership status",
+		})
+		return
+	}
+
+	// Check payment status
+	isPaying, _ := h.membershipRepo.IsAccountPayingMember(user.ID)
+	isEmployee, _ := h.membershipRepo.IsAccountCompanyEmployee(user.ID)
+
+	// Get membership details
+	membership, _ := h.membershipRepo.GetMembershipByAccount(user.ID)
+
+	response := gin.H{
+		"status": "success",
+		"data": gin.H{
+			"is_active":  isActive,
+			"is_paying":  isPaying,
+			"is_employee": isEmployee,
+		},
+	}
+
+	if membership != nil {
+		membershipData := gin.H{
+			"first_membership":  membership.FirstMembership.Format("2006-01-02"),
+			"start_membership":  membership.StartMembership.Format("2006-01-02"),
+			"fee":               membership.Fee,
+		}
+		if membership.MembershipNumber.Valid {
+			membershipData["membership_number"] = membership.MembershipNumber.Int64
+		}
+		response["data"].(gin.H)["membership"] = membershipData
+	}
+
+	c.JSON(http.StatusOK, response)
+}
+
 // GetActiveMembers returns a simple list of active members (API endpoint)
 func (h *Handler) GetActiveMembers(c *gin.Context) {
 	payingMembers, err := h.membershipRepo.GetActivePayingMembers()

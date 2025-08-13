@@ -81,37 +81,39 @@ func (h *Handler) Login(c *gin.Context) {
     <title>Login - P2K16</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
-    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body>
-		` + h.renderNavbar(c) + `
+	` + h.renderNavbar(c) + `
     
-	<main>
-		<section>
-			<header>
-				<h2>Login to P2K16</h2>
-			</header>
-			<div>`
-
-	html += `
+	<main class="container mt-4">
+		<div class="row justify-content-center">
+			<div class="col-md-6">
+				<div class="card">
+					<div class="card-header">
+						<h2 class="card-title mb-0">Login to P2K16</h2>
+					</div>
+					<div class="card-body">
 						<form hx-post="/api/auth/login" hx-target="#login-result" method="post" action="/api/auth/login">
-							<div>
-								<label for="username">Username</label>
-								<input type="text" id="username" name="username" required>
+							<div class="mb-3">
+								<label for="username" class="form-label">Username</label>
+								<input type="text" class="form-control" id="username" name="username" required>
 							</div>
-							<div>
-								<label for="password">Password</label>
-								<input type="password" id="password" name="password" required>
+							<div class="mb-3">
+								<label for="password" class="form-label">Password</label>
+								<input type="password" class="form-control" id="password" name="password" required>
 							</div>
-							<div>
-								<button type="submit">Login</button>
+							<div class="d-grid">
+								<button type="submit" class="btn btn-primary">Login</button>
 							</div>
 						</form>
-						<div id="login-result"></div>
-                    </div>
-                
-		</section>
+						<div id="login-result" class="mt-3"></div>
+					</div>
+				</div>
+			</div>
+		</div>
     </main>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>`
 

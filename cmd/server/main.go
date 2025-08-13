@@ -73,7 +73,7 @@ func main() {
 	// Public routes
 	r.GET("/", middleware.OptionalAuth(handler.GetAccountRepo()), handler.Home)
 	r.GET("/login", middleware.OptionalAuth(handler.GetAccountRepo()), handler.Login)
-	r.GET("/logout", handler.Logout)
+	r.POST("/logout", handler.Logout)
 
 	// Protected routes
 	protected := r.Group("/")
@@ -82,6 +82,19 @@ func main() {
 		protected.GET("/dashboard", handler.Dashboard)
 		protected.GET("/profile", handler.Profile)
 		protected.GET("/admin", handler.Admin)
+
+		// Admin routes
+		protected.GET("/admin/users", handler.AdminUsers)
+		protected.GET("/admin/tools", handler.AdminTools)
+		protected.GET("/admin/companies", handler.AdminCompanies)
+		protected.GET("/admin/circles", handler.AdminCircles)
+		protected.GET("/admin/logs", handler.AdminLogs)
+		protected.GET("/admin/config", handler.AdminConfig)
+
+		// Profile management endpoints
+		protected.POST("/profile/change-password", handler.ChangePassword)
+		protected.POST("/profile/update", handler.UpdateProfile)
+		// Remove these from protected, add to /api group below
 	}
 
 	// API routes
@@ -94,10 +107,21 @@ func main() {
 		apiProtected := api.Group("/")
 		apiProtected.Use(middleware.RequireAuth(handler.GetAccountRepo()))
 		{
+			// Account management endpoints
+			apiProtected.GET("/accounts", handler.GetAccounts)
+			apiProtected.GET("/accounts/:id", handler.GetAccount)
+
+			// Badge management endpoints
+			apiProtected.GET("/badges", handler.GetBadges)
 			apiProtected.GET("/user/badges", handler.GetUserBadges)
 			apiProtected.GET("/badges/available", handler.GetAvailableBadges)
 			apiProtected.POST("/badges/create", handler.CreateBadge)
 			apiProtected.POST("/badges/award", handler.AwardBadge)
+
+			// Membership endpoints
+			apiProtected.GET("/memberships", handler.GetMembershipStatusAPI)
+			apiProtected.GET("/membership/status", handler.GetMembershipStatus)
+			apiProtected.GET("/membership/active", handler.GetActiveMembersDetailed)
 
 			// Tool management routes
 			apiProtected.GET("/tools", handler.GetTools)
@@ -105,9 +129,9 @@ func main() {
 			apiProtected.POST("/tools/checkout", handler.CheckoutTool)
 			apiProtected.POST("/tools/checkin", handler.CheckinTool)
 
-			// Membership routes
-			apiProtected.GET("/membership/status", handler.GetMembershipStatus)
-			apiProtected.GET("/membership/active", handler.GetActiveMembersDetailed)
+			// Profile card flip endpoints for HTMX
+			apiProtected.GET("/profile/card/front", handler.ProfileCardFront)
+			apiProtected.GET("/profile/card/back", handler.ProfileCardBack)
 		}
 	}
 

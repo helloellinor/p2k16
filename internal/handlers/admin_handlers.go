@@ -54,13 +54,34 @@ func (h *Handler) AdminUsers(c *gin.Context) {
 	<title>Admin / Users - P2K16</title>
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<script src="https://unpkg.com/htmx.org@1.9.10"></script>
+	<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body>
 	` + h.renderNavbarWithTrail(c, "Admin / Users") + `
-	<main>
-		<h1>Users</h1>
-		<p>Manage user accounts and permissions.</p>
+	<main class="container mt-4">
+		<div class="d-flex justify-content-between align-items-center mb-4">
+			<h1>User Management</h1>
+			<nav>
+				<a href="/admin" class="btn btn-outline-secondary">← Back to Admin</a>
+			</nav>
+		</div>
+		
+		<div class="card">
+			<div class="card-header">
+				<h5 class="card-title mb-0">User Accounts</h5>
+			</div>
+			<div class="card-body">
+				<div id="users-list" hx-get="/api/accounts" hx-trigger="load" hx-target="this">
+					<div class="text-center">
+						<div class="spinner-border" role="status">
+							<span class="visually-hidden">Loading users...</span>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
 	</main>
+	<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>`
 	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))

@@ -52,56 +52,114 @@ func (h *Handler) Home(c *gin.Context) {
 	<title>P2K16</title>
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<script src="https://unpkg.com/htmx.org@1.9.10"></script>
-    
+	<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body>
 	` + h.renderNavbar(c) + `
     
-	<main>
-		<div>
+	<main class="container mt-4">
+		<div class="text-center mb-4">
 			<h1>Welcome to P2K16</h1>
-			<p>Hackerspace Management System</p>
+			<p class="lead">Hackerspace Management System</p>
 		</div>
 `
 	if user == nil {
 		html += `
-		<section>
-			<header>
-				<h2>Login</h2>
-			</header>
-			<div>
-				<form hx-post="/api/auth/login" hx-target="#login-result" method="post" action="/api/auth/login">
-					<div>
-						<label for="username">Username</label>
-						<input type="text" id="username" name="username" required>
+		<div class="row justify-content-center">
+			<div class="col-md-6">
+				<div class="card">
+					<div class="card-header">
+						<h2 class="card-title mb-0">Login</h2>
 					</div>
-					<div>
-						<label for="password">Password</label>
-						<input type="password" id="password" name="password" required>
+					<div class="card-body">
+						<form hx-post="/api/auth/login" hx-target="#login-result" method="post" action="/api/auth/login">
+							<div class="mb-3">
+								<label for="username" class="form-label">Username</label>
+								<input type="text" class="form-control" id="username" name="username" required>
+							</div>
+							<div class="mb-3">
+								<label for="password" class="form-label">Password</label>
+								<input type="password" class="form-control" id="password" name="password" required>
+							</div>
+							<div class="d-grid">
+								<button type="submit" class="btn btn-primary">Login</button>
+							</div>
+						</form>
+						<div id="login-result" class="mt-3"></div>
 					</div>
-					<div>
-						<button type="submit">Login</button>
-					</div>
-				</form>
-				<div id="login-result"></div>
+				</div>
 			</div>
-		</section>
+		</div>
+		`
+	} else {
+		// Authenticated user content - similar to Python front-page.html
+		html += `
+		<div class="row">
+			<div class="col-md-8 offset-md-2">
+				<div id="membership-status" hx-get="/api/membership/status" hx-trigger="load" hx-target="this">
+					<div class="text-center">
+						<div class="spinner-border" role="status">
+							<span class="visually-hidden">Loading membership status...</span>
+						</div>
+					</div>
+				</div>
+
+				<div class="mt-4">
+					<div class="card">
+						<div class="card-header">
+							<h5 class="card-title mb-0">Tools</h5>
+						</div>
+						<div class="card-body">
+							<div id="tools-section" hx-get="/api/tools" hx-trigger="load" hx-target="this">
+								<div class="text-center">
+									<div class="spinner-border spinner-border-sm" role="status">
+										<span class="visually-hidden">Loading tools...</span>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+
+				<div class="mt-4">
+					<div class="card">
+						<div class="card-header">
+							<h5 class="card-title mb-0">Active Checkouts</h5>
+						</div>
+						<div class="card-body">
+							<div id="active-checkouts" hx-get="/api/tools/checkouts" hx-trigger="load" hx-target="this">
+								<div class="text-center">
+									<div class="spinner-border spinner-border-sm" role="status">
+										<span class="visually-hidden">Loading checkouts...</span>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
 		`
 	}
 	html += `
-		<section>
-			<article>
-				<header>
-					<h2>System Status</h2>
-				</header>
-				<div>
-					<p>Online</p>
-					<p>Database connected - all systems operational</p>
+		<div class="row mt-4">
+			<div class="col-md-8 offset-md-2">
+				<div class="card">
+					<div class="card-header">
+						<h5 class="card-title mb-0">System Status</h5>
+					</div>
+					<div class="card-body">
+						<div class="d-flex align-items-center">
+							<span class="badge bg-success me-2">Online</span>
+							<span>Database connected - all systems operational</span>
+						</div>
+					</div>
 				</div>
-			</article>
-		</section>
+			</div>
+		</div>
 
 	</main>
+	<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>`
 
@@ -125,22 +183,27 @@ func (h *Handler) Profile(c *gin.Context) {
     <title>Profile - P2K16</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
-    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body>
 	` + h.renderNavbarWithTrail(c, "Profile") + `
     
-	<main>
-		<div>
-			<h1>Membership Card</h1>
-			<p>Front shows your info and badges. Click Edit to flip to the back and manage details.</p>
+	<main class="container mt-4">
+		<div class="row justify-content-center">
+			<div class="col-md-8">
+				<div class="text-center mb-4">
+					<h1>Membership Card</h1>
+					<p class="lead">Front shows your info and badges. Click Edit to flip to the back and manage details.</p>
+				</div>
+				<div class="card">
+					<div class="card-body">
+						<div id="membership-card">` + h.renderProfileCardFrontHTML(user) + `</div>
+					</div>
+				</div>
+			</div>
 		</div>
-		<section>
-			<div id="membership-card">` + h.renderProfileCardFrontHTML(user) + `</div>
-		</section>
-
-
     </main>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>`
 
