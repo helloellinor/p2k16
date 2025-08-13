@@ -25,35 +25,28 @@ func main() {
 		SSLMode:  getEnv("DB_SSLMODE", "disable"),
 	}
 
-	// Try to connect to database - fall back to demo mode if it fails
+	// Connect to database - exit if connection fails 
 	db, err := database.NewConnection(dbConfig)
-	var handler *handlers.Handler
-	var demoMode bool
-	
 	if err != nil {
-		log.Printf("Database connection failed: %v", err)
-		log.Printf("Starting in DEMO MODE - no database required")
-		log.Printf("Use 'demo' with any password, 'super/super', or 'foo/foo' to login")
-		
-		// Initialize demo handlers with nil repositories
-		handler = handlers.NewHandler(nil, nil, nil, nil, nil, nil)
-		demoMode = true
-	} else {
-		log.Printf("Database connection successful")
-		defer db.Close()
-
-		// Initialize repositories
-		accountRepo := models.NewAccountRepository(db.DB)
-		circleRepo := models.NewCircleRepository(db.DB)
-		badgeRepo := models.NewBadgeRepository(db.DB)
-		toolRepo := models.NewToolRepository(db.DB)
-		eventRepo := models.NewEventRepository(db.DB)
-		membershipRepo := models.NewMembershipRepository(db.DB)
-
-		// Initialize handlers
-		handler = handlers.NewHandler(accountRepo, circleRepo, badgeRepo, toolRepo, eventRepo, membershipRepo)
-		demoMode = false
+		log.Printf("❌ Database connection failed: %v", err)
+		log.Printf("💡 Please ensure PostgreSQL is running and credentials are correct")
+		log.Printf("🔧 Database config: %s@%s:%d/%s", dbConfig.User, dbConfig.Host, dbConfig.Port, dbConfig.DBName)
+		log.Fatalf("Cannot start server without database connection")
 	}
+	
+	log.Printf("✅ Database connection successful")
+	defer db.Close()
+
+	// Initialize repositories
+	accountRepo := models.NewAccountRepository(db.DB)
+	circleRepo := models.NewCircleRepository(db.DB)
+	badgeRepo := models.NewBadgeRepository(db.DB)
+	toolRepo := models.NewToolRepository(db.DB)
+	eventRepo := models.NewEventRepository(db.DB)
+	membershipRepo := models.NewMembershipRepository(db.DB)
+
+	// Initialize handlers
+	handler := handlers.NewHandler(accountRepo, circleRepo, badgeRepo, toolRepo, eventRepo, membershipRepo)
 
 	// Set up Gin router
 	r := gin.New()
@@ -118,8 +111,7 @@ func main() {
 		}
 	}
 
-	// Set demo mode in handler
-	handler.SetDemoMode(demoMode)
+	// Demo mode has been removed - server requires database connection
 
 	// Start server
 	port := getEnv("PORT", "8080")

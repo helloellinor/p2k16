@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/helloellinor/p2k16/internal/logging"
 	"github.com/helloellinor/p2k16/internal/middleware"
 	"github.com/helloellinor/p2k16/internal/models"
 )
@@ -17,7 +18,6 @@ type Handler struct {
 	toolRepo       *models.ToolRepository
 	eventRepo      *models.EventRepository
 	membershipRepo *models.MembershipRepository
-	demoMode       bool
 }
 
 func NewHandler(accountRepo *models.AccountRepository, circleRepo *models.CircleRepository, badgeRepo *models.BadgeRepository, toolRepo *models.ToolRepository, eventRepo *models.EventRepository, membershipRepo *models.MembershipRepository) *Handler {
@@ -28,31 +28,29 @@ func NewHandler(accountRepo *models.AccountRepository, circleRepo *models.Circle
 		toolRepo:       toolRepo,
 		eventRepo:      eventRepo,
 		membershipRepo: membershipRepo,
-		demoMode:       false,
 	}
 }
 
-// SetDemoMode sets whether the handler is running in demo mode
-func (h *Handler) SetDemoMode(demoMode bool) {
-	h.demoMode = demoMode
-}
-
-// GetAccountRepo returns the account repository (may be nil in demo mode)
+// GetAccountRepo returns the account repository
 func (h *Handler) GetAccountRepo() *models.AccountRepository {
 	return h.accountRepo
 }
 
 // Home renders the front page
 func (h *Handler) Home(c *gin.Context) {
+	logging.LogHandlerAction("PAGE REQUEST", "Home page visited")
 	user := middleware.GetCurrentUser(c)
 	userInfo := ""
 
 	if user != nil {
+		logging.LogHandlerAction("USER STATUS", fmt.Sprintf("Authenticated user: %s", user.Username))
 		userInfo = `
 			<div class="p2k16-header__user">
 				<span class="p2k16-text--secondary">Welcome, <strong>` + user.Username + `</strong></span>
 				<a href="/logout" class="p2k16-button p2k16-button--secondary p2k16-button--sm">Logout</a>
 			</div>`
+	} else {
+		logging.LogHandlerAction("USER STATUS", "Anonymous user")
 	}
 
 	html := `
@@ -105,20 +103,9 @@ func (h *Handler) Home(c *gin.Context) {
                 <div class="p2k16-card__header">
                     <h5 class="p2k16-card__title">System Status</h5>
                 </div>
-                <div class="p2k16-card__body">`
-
-	if h.demoMode {
-		html += `
-                        <div class="p2k16-badge p2k16-badge--warning">Demo Mode</div>
-                        <p class="p2k16-mt-4">Running without database connection</p>
-                        <small class="p2k16-text--muted">Use "demo" with any password, "super/super", or "foo/foo" to login</small>`
-	} else {
-		html += `
+                <div class="p2k16-card__body">
                         <div class="p2k16-badge p2k16-badge--success">Online</div>
-                        <p class="p2k16-mt-4">Database connected - all systems operational</p>`
-	}
-
-	html += `
+                        <p class="p2k16-mt-4">Database connected - all systems operational</p>
                     </div>
                 </div>
             </div>
@@ -139,8 +126,10 @@ func (h *Handler) Home(c *gin.Context) {
 
 // Login handles user authentication
 func (h *Handler) Login(c *gin.Context) {
+	logging.LogHandlerAction("PAGE REQUEST", "Login page visited")
 	// If already logged in, redirect to home
 	if middleware.IsAuthenticated(c) {
+		logging.LogHandlerAction("LOGIN REDIRECT", "User already authenticated, redirecting to home")
 		c.Redirect(http.StatusFound, "/")
 		return
 	}
@@ -168,40 +157,15 @@ func (h *Handler) Login(c *gin.Context) {
             </div>
             <div class="p2k16-card__body">`
 
-	if h.demoMode {
-		html += `
-                        <div class="p2k16-alert p2k16-alert--info">
-                            <strong>Demo Mode:</strong> Use "demo" with any password, "super/super", or "foo/foo"
-                        </div>`
-	}
-
 	html += `
                         <form class="p2k16-form" hx-post="/api/auth/login" hx-target="#login-result" method="post" action="/api/auth/login">
                             <div class="p2k16-field">
-                                <label for="username" class="p2k16-field__label">Username</label>`
-
-	if h.demoMode {
-		html += `
-                                <input type="text" class="p2k16-field__input" id="username" name="username" value="foo" required>`
-	} else {
-		html += `
-                                <input type="text" class="p2k16-field__input" id="username" name="username" required>`
-	}
-
-	html += `
+                                <label for="username" class="p2k16-field__label">Username</label>
+                                <input type="text" class="p2k16-field__input" id="username" name="username" required>
                             </div>
                             <div class="p2k16-field">
-                                <label for="password" class="p2k16-field__label">Password</label>`
-
-	if h.demoMode {
-		html += `
-                                <input type="password" class="p2k16-field__input" id="password" name="password" value="foo" required>`
-	} else {
-		html += `
-                                <input type="password" class="p2k16-field__input" id="password" name="password" required>`
-	}
-
-	html += `
+                                <label for="password" class="p2k16-field__label">Password</label>
+                                <input type="password" class="p2k16-field__input" id="password" name="password" required>
                             </div>
                             <div class="p2k16-flex p2k16-flex--between">
                                 <button type="submit" class="p2k16-button p2k16-button--primary">Login</button>
@@ -222,17 +186,24 @@ func (h *Handler) Login(c *gin.Context) {
 
 // Logout handles user logout
 func (h *Handler) Logout(c *gin.Context) {
+	logging.LogHandlerAction("USER ACTION", "User logout requested")
 	if err := middleware.LogoutUser(c); err != nil {
+		logging.LogError("LOGOUT ERROR", fmt.Sprintf("Failed to logout user: %v", err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to logout"})
 		return
 	}
 
+	logging.LogSuccess("USER ACTION", "User successfully logged out - redirecting to home")
 	c.Redirect(http.StatusFound, "/")
 }
 
 // Dashboard shows the user dashboard (requires authentication)
 func (h *Handler) Dashboard(c *gin.Context) {
+	logging.LogHandlerAction("PAGE REQUEST", "Dashboard page visited")
 	user := middleware.GetCurrentUser(c)
+	if user != nil {
+		logging.LogHandlerAction("USER ACCESS", fmt.Sprintf("Dashboard accessed by user: %s", user.Username))
+	}
 
 	html := `
 <!DOCTYPE html>
@@ -324,7 +295,9 @@ func (h *Handler) Dashboard(c *gin.Context) {
 
 // GetActiveMembers returns a list of active members (for HTMX)
 func (h *Handler) GetActiveMembers(c *gin.Context) {
+	logging.LogHandlerAction("API REQUEST", "Active members list requested")
 	// This is a placeholder - in real implementation we'd fetch from database
+	logging.LogWarning("UNIMPLEMENTED", "GetActiveMembers not yet connected to database - returning mock data")
 	html := `
 		<div class="p2k16-grid p2k16-grid--2-col">
 			<div class="p2k16-card">
@@ -343,21 +316,25 @@ func (h *Handler) GetActiveMembers(c *gin.Context) {
 			</div>
 		</div>`
 
+	logging.LogHandlerAction("API RESPONSE", "Active members list returned (mock data)")
 	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
 }
 
 // GetUserBadges returns user badges (for HTMX, requires authentication)
 func (h *Handler) GetUserBadges(c *gin.Context) {
+	logging.LogHandlerAction("API REQUEST", "User badges requested")
 	user := middleware.GetCurrentUser(c)
 	
 	badges, err := h.badgeRepo.GetBadgesForAccount(user.ID)
 	if err != nil {
+		logging.LogError("DATABASE ERROR", fmt.Sprintf("Failed to fetch badges for user %s: %v", user.Username, err))
 		c.Data(http.StatusInternalServerError, "text/html; charset=utf-8", 
 			[]byte(`<div class="alert alert-danger">Failed to load badges</div>`))
 		return
 	}
 	
 	if len(badges) == 0 {
+		logging.LogHandlerAction("BADGES RESULT", fmt.Sprintf("No badges found for user: %s", user.Username))
 		html := `
 			<div class="text-center">
 				<p class="text-muted">No badges yet!</p>
@@ -391,97 +368,41 @@ func (h *Handler) GetUserBadges(c *gin.Context) {
 
 // AuthLogin handles login form submission
 func (h *Handler) AuthLogin(c *gin.Context) {
-		username := c.PostForm("username")
-		password := c.PostForm("password")
+	logging.LogHandlerAction("API REQUEST", "Login attempt received")
+	username := c.PostForm("username")
+	password := c.PostForm("password")
 
-		// Debug: log received credentials (do not log passwords in production!)
-		fmt.Printf("[DEBUG] Login attempt: username='%s'\n", username)
+	logging.LogHandlerAction("LOGIN ATTEMPT", fmt.Sprintf("Username: %s", username))
 
-		if username == "" || password == "" {
-			fmt.Println("[DEBUG] Username or password missing")
-			c.Data(http.StatusBadRequest, "text/html; charset=utf-8",
-				[]byte(`<div class="alert alert-danger">Username and password are required</div>`))
-			return
-		}
-
-	// Handle demo mode authentication
-	if h.demoMode || h.accountRepo == nil {
-		// Check demo credentials using the same password hashes as the database
-		var isValid bool
-		var accountID int = 1
-		
-		switch username {
-		case "demo":
-			// Allow any password for demo user
-			isValid = true
-		case "super":
-			// Use the actual bcrypt hash from migration for super/super
-			superHash := "$2b$12$B/kxR5O85fN357.fZNUPoOiNblCj7j2lX3/VLajLvuE42OmqsyUTO"
-			account := &models.Account{Password: superHash}
-			isValid = account.ValidatePassword(password)
-			accountID = 2
-		case "foo":
-			// Use the actual bcrypt hash from migration for foo/foo
-			fooHash := "$2b$12$o764MV/jh0HnsAtsEz53L.GfbLwCqZ5jTf3aV2yUAFFCaTrzGCcQm"
-			account := &models.Account{Password: fooHash}
-			isValid = account.ValidatePassword(password)
-			accountID = 3
-		}
-
-		if isValid {
-			// Create a demo account for session
-			account := &models.Account{
-				ID:       accountID,
-				Username: username,
-				Email:    username + "@demo.local",
-			}
-
-			// Login user by setting session
-			if err := middleware.LoginUser(c, account); err != nil {
-				c.Data(http.StatusInternalServerError, "text/html; charset=utf-8",
-					[]byte(`<div class="alert alert-danger">Failed to login. Please try again.</div>`))
-				return
-			}
-
-			// Successful login - redirect via HTMX
-			html := `
-				<div class="alert alert-success">
-					Login successful! Welcome to demo mode, ` + account.Username + `
-				</div>
-				<script>
-					setTimeout(function() {
-						window.location.href = '/dashboard';
-					}, 1000);
-				</script>`
-
-			c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
-			return
-		}
-
-		c.Data(http.StatusUnauthorized, "text/html; charset=utf-8",
-			[]byte(`<div class="alert alert-danger">Invalid username or password. In demo mode, use "demo" with any password, "super/super", or "foo/foo".</div>`))
+	if username == "" || password == "" {
+		logging.LogError("LOGIN FAILED", "Missing username or password")
+		c.Data(http.StatusBadRequest, "text/html; charset=utf-8",
+			[]byte(`<div class="alert alert-danger">Username and password are required</div>`))
 		return
 	}
 
-	// Normal database authentication
-		account, err := h.accountRepo.FindByUsername(username)
-		if err != nil {
-			fmt.Printf("[DEBUG] User '%s' not found in DB or error: %v\n", username, err)
-			c.Data(http.StatusUnauthorized, "text/html; charset=utf-8",
-				[]byte(`<div class="alert alert-danger">Invalid username or password</div>`))
-			return
-		}
-		fmt.Printf("[DEBUG] User '%s' found in DB, checking password...\n", username)
-		if !account.ValidatePassword(password) {
-			fmt.Printf("[DEBUG] Password check failed for user '%s'\n", username)
-			c.Data(http.StatusUnauthorized, "text/html; charset=utf-8",
-				[]byte(`<div class="alert alert-danger">Invalid username or password</div>`))
-			return
-		}
-		fmt.Printf("[DEBUG] Password check passed for user '%s'\n", username)
+	// Database authentication
+	account, err := h.accountRepo.FindByUsername(username)
+	if err != nil {
+		logging.LogError("LOGIN FAILED", fmt.Sprintf("User '%s' not found in database: %v", username, err))
+		c.Data(http.StatusUnauthorized, "text/html; charset=utf-8",
+			[]byte(`<div class="alert alert-danger">Invalid username or password</div>`))
+		return
+	}
+	
+	logging.LogHandlerAction("USER FOUND", fmt.Sprintf("User '%s' found in database, validating password", username))
+	if !account.ValidatePassword(password) {
+		logging.LogError("LOGIN FAILED", fmt.Sprintf("Invalid password for user '%s'", username))
+		c.Data(http.StatusUnauthorized, "text/html; charset=utf-8",
+			[]byte(`<div class="alert alert-danger">Invalid username or password</div>`))
+		return
+	}
+	
+	logging.LogSuccess("LOGIN SUCCESS", fmt.Sprintf("User authenticated: %s", username))
 
 	// Login user by setting session
 	if err := middleware.LoginUser(c, account); err != nil {
+		logging.LogError("SESSION ERROR", fmt.Sprintf("Failed to create session for user %s: %v", username, err))
 		c.Data(http.StatusInternalServerError, "text/html; charset=utf-8",
 			[]byte(`<div class="alert alert-danger">Failed to login. Please try again.</div>`))
 		return
@@ -489,8 +410,8 @@ func (h *Handler) AuthLogin(c *gin.Context) {
 
 	// Successful login - redirect via HTMX
 	html := `
-		<div class="p2k16-alert p2k16-alert--success">
-			Login successful! Welcome back, ` + account.Username + `
+		<div class="alert alert-success">
+			Login successful! Welcome, ` + account.Username + `
 		</div>
 		<script>
 			setTimeout(function() {
@@ -498,6 +419,7 @@ func (h *Handler) AuthLogin(c *gin.Context) {
 			}, 1000);
 		</script>`
 
+	logging.LogSuccess("SESSION CREATED", fmt.Sprintf("Session created for user: %s", username))
 	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
 }
 

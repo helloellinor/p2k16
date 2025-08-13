@@ -41,14 +41,6 @@ func (h *Handler) ChangePassword(c *gin.Context) {
 		return
 	}
 
-	// Handle demo mode
-	if h.demoMode || h.accountRepo == nil {
-		logging.LogHandlerAction("DEMO MODE", "Password change simulated - no database update")
-		c.Data(http.StatusOK, "text/html; charset=utf-8",
-			[]byte(`<div class="p2k16-alert p2k16-alert--success">Password changed successfully (demo mode)</div>`))
-		return
-	}
-
 	logging.LogHandlerAction("DATABASE OPERATION", "Fetching current account for password verification")
 	// Get current account
 	account, err := h.accountRepo.FindByID(user.ID)
@@ -98,21 +90,6 @@ func (h *Handler) UpdateProfile(c *gin.Context) {
 	phone := c.PostForm("phone")
 
 	logging.LogHandlerAction("USER REQUEST", fmt.Sprintf("Profile update for user ID: %d - Name: %s, Phone: %s", user.ID, name, phone))
-
-	// Handle demo mode
-	if h.demoMode || h.accountRepo == nil {
-		logging.LogHandlerAction("DEMO MODE", "Profile update simulated - no database update")
-		message := "Profile updated successfully (demo mode)"
-		if name != "" {
-			message += " - Name: " + name
-		}
-		if phone != "" {
-			message += " - Phone: " + phone
-		}
-		c.Data(http.StatusOK, "text/html; charset=utf-8",
-			[]byte(`<div class="p2k16-alert p2k16-alert--success">`+message+`</div>`))
-		return
-	}
 
 	logging.LogHandlerAction("DATABASE OPERATION", "Fetching current account for profile update")
 	// Get current account
