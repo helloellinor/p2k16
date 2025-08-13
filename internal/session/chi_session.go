@@ -9,6 +9,14 @@ import (
 	"github.com/helloellinor/p2k16/internal/models"
 )
 
+// SessionData represents the data stored in a session
+type SessionData struct {
+	UserID       int       `json:"user_id"`
+	Username     string    `json:"username"`
+	LastActivity time.Time `json:"last_activity"`
+	CreatedAt    time.Time `json:"created_at"`
+}
+
 // ChiSessionManager wraps the SCS session manager for chi
 type ChiSessionManager struct {
 	*scs.SessionManager

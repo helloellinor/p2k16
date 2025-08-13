@@ -11,6 +11,33 @@ import (
 	"github.com/helloellinor/p2k16/internal/session"
 )
 
+// Handler represents the base handler with repository dependencies
+type Handler struct {
+	accountRepo    *models.AccountRepository
+	circleRepo     *models.CircleRepository
+	badgeRepo      *models.BadgeRepository
+	toolRepo       *models.ToolRepository
+	eventRepo      *models.EventRepository
+	membershipRepo *models.MembershipRepository
+}
+
+// NewHandler creates a new handler with all repository dependencies
+func NewHandler(accountRepo *models.AccountRepository, circleRepo *models.CircleRepository, badgeRepo *models.BadgeRepository, toolRepo *models.ToolRepository, eventRepo *models.EventRepository, membershipRepo *models.MembershipRepository) *Handler {
+	return &Handler{
+		accountRepo:    accountRepo,
+		circleRepo:     circleRepo,
+		badgeRepo:      badgeRepo,
+		toolRepo:       toolRepo,
+		eventRepo:      eventRepo,
+		membershipRepo: membershipRepo,
+	}
+}
+
+// GetAccountRepo returns the account repository
+func (h *Handler) GetAccountRepo() *models.AccountRepository {
+	return h.accountRepo
+}
+
 // ChiHandler wraps the original handler with chi-compatible methods
 type ChiHandler struct {
 	*Handler
