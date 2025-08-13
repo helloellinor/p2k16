@@ -34,6 +34,9 @@ func main() {
 		c.Redirect(302, "/")
 	})
 
+	// Serve static files
+	r.Static("/static", "./static")
+
 	// Demo authenticated page to show navigation with logout
 	r.GET("/demo-authenticated", func(c *gin.Context) {
 		html := `
@@ -42,8 +45,8 @@ func main() {
 <head>
 	<title>P2K16</title>
 	<meta name="viewport" content="width=device-width, initial-scale=1">
-	<script src="https://unpkg.com/htmx.org@1.9.10"></script>
-	<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+	<script src="/static/htmx.min.js"></script>
+	<link href="/static/bootstrap.min.css" rel="stylesheet">
 </head>
 <body>
 	<nav class="navbar navbar-expand-lg navbar-dark bg-primary">
@@ -131,8 +134,8 @@ func main() {
 <head>
 	<title>P2K16</title>
 	<meta name="viewport" content="width=device-width, initial-scale=1">
-	<script src="https://unpkg.com/htmx.org@1.9.10"></script>
-	<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+	<script src="/static/htmx.min.js"></script>
+	<link href="/static/bootstrap.min.css" rel="stylesheet">
 </head>
 <body>
 	<nav class="navbar navbar-expand-lg navbar-dark bg-primary">
@@ -226,8 +229,8 @@ func main() {
 <head>
 	<title>Admin - P2K16</title>
 	<meta name="viewport" content="width=device-width, initial-scale=1">
-	<script src="https://unpkg.com/htmx.org@1.9.10"></script>
-	<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+	<script src="/static/htmx.min.js"></script>
+	<link href="/static/bootstrap.min.css" rel="stylesheet">
 </head>
 <body>
 	<nav class="navbar navbar-expand-lg navbar-dark bg-primary">
@@ -350,8 +353,8 @@ func main() {
 <head>
 	<title>Admin / Users - P2K16</title>
 	<meta name="viewport" content="width=device-width, initial-scale=1">
-	<script src="https://unpkg.com/htmx.org@1.9.10"></script>
-	<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+	<script src="/static/htmx.min.js"></script>
+	<link href="/static/bootstrap.min.css" rel="stylesheet">
 </head>
 <body>
 	<nav class="navbar navbar-expand-lg navbar-dark bg-primary">
