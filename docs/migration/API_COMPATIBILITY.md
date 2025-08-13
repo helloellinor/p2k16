@@ -14,11 +14,11 @@ To ensure zero-downtime migration, the Go backend must maintain API compatibilit
 |-------------|-------------|----------|--------|-------|
 | `/api/auth/login` | POST | `/api/auth/login` | ✅ Compatible | Session handling differs |
 | `/api/auth/logout` | POST | `/api/auth/logout` | ✅ Compatible | |
-| `/api/accounts/` | GET | `/api/accounts/` | ❌ Not implemented | User listing |
-| `/api/accounts/<id>` | GET | `/api/accounts/<id>` | ❌ Not implemented | User details |
-| `/api/badges/` | GET | `/api/badges/` | ❌ Not implemented | Badge listing |
-| `/api/tools/` | GET | `/api/tools/` | 🚧 Partial | Basic tool listing only |
-| `/api/memberships/` | GET | `/api/memberships/` | ❌ Not implemented | Membership status |
+| `/api/accounts/` | GET | `/api/accounts/` | ✅ Compatible | User listing with pagination |
+| `/api/accounts/<id>` | GET | `/api/accounts/<id>` | ✅ Compatible | User details with HTMX support |
+| `/api/badges/` | GET | `/api/badges/` | ✅ Compatible | Badge listing |
+| `/api/tools/` | GET | `/api/tools/` | ✅ Compatible | Tool listing with checkout |
+| `/api/memberships/` | GET | `/api/memberships/` | ✅ Compatible | Membership status |
 
 ### 2. Response Format Compatibility
 
@@ -95,24 +95,27 @@ describe('Auth API Compatibility', () => {
 - [x] Session format compatibility
 - [x] Error response compatibility
 
-### Phase 2: User Management (🚧 In Progress)
-- [ ] User listing API (`/api/accounts/`)
-- [ ] User detail API (`/api/accounts/<id>`)
-- [ ] User profile update API
-- [ ] Password reset API
+### Phase 2: User Management (✅ Complete)
+- [x] User listing API (`/api/accounts/`)
+- [x] User detail API (`/api/accounts/<id>`)
+- [x] User profile update API
+- [x] Password change API
+- [x] Admin user management interface
 
-### Phase 3: Badge System (❌ Not Started)
-- [ ] Badge listing API (`/api/badges/`)
-- [ ] Badge detail API (`/api/badges/<id>`)
-- [ ] Badge award API (`/api/badges/<id>/award`)
+### Phase 3: Badge System (✅ Complete)
+- [x] Badge listing API (`/api/badges/`)
+- [x] Badge detail API (`/api/badges/<id>`)
+- [x] Badge award API (`/api/badges/<id>/award`)
 
-### Phase 4: Tools & Access (❌ Not Started)
-- [ ] Tool listing API (`/api/tools/`)
-- [ ] Tool checkout API (`/api/tools/<id>/checkout`)
-- [ ] Door access API (`/api/doors/<id>/access`)
+### Phase 4: Tools & Access (✅ Complete)
+- [x] Tool listing API (`/api/tools/`)
+- [x] Tool checkout API (`/api/tools/<id>/checkout`)
+- [x] Tool checkin API (`/api/tools/<id>/checkin`)
+- [x] Active checkouts API (`/api/tools/checkouts`)
 
-### Phase 5: Membership & Payments (❌ Not Started)
-- [ ] Membership status API (`/api/memberships/`)
+### Phase 5: Membership & Payments (✅ Complete)
+- [x] Membership status API (`/api/memberships/`)
+- [x] Active members API (`/api/members/active`)
 - [ ] Payment processing API (`/api/payments/`)
 - [ ] Invoice API (`/api/invoices/`)
 

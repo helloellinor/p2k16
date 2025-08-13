@@ -83,6 +83,14 @@ func main() {
 		protected.GET("/profile", handler.Profile)
 		protected.GET("/admin", handler.Admin)
 		
+		// Admin routes
+		protected.GET("/admin/users", handler.AdminUsers)
+		protected.GET("/admin/tools", handler.AdminTools)
+		protected.GET("/admin/companies", handler.AdminCompanies)
+		protected.GET("/admin/circles", handler.AdminCircles)
+		protected.GET("/admin/logs", handler.AdminLogs)
+		protected.GET("/admin/config", handler.AdminConfig)
+		
 		// Profile management endpoints
 		protected.POST("/profile/change-password", handler.ChangePassword)
 		protected.POST("/profile/update", handler.UpdateProfile)
