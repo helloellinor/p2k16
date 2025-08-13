@@ -262,6 +262,7 @@ func (r *BadgeRepository) FindBadgeDescriptionByTitle(title string) (*BadgeDescr
 
 	return &desc, nil
 }
+
 // ToolRepository handles database operations for tools
 type ToolRepository struct {
 	db *sql.DB
@@ -293,7 +294,7 @@ func (r *ToolRepository) GetAllTools() ([]ToolDescription, error) {
 		var circleID sql.NullInt64
 		var circleName sql.NullString
 		var circleDesc sql.NullString
-		
+
 		err := rows.Scan(
 			&tool.ID, &tool.Name, &tool.Description, &tool.CircleID,
 			&tool.CreatedAt, &tool.UpdatedAt, &tool.CreatedBy, &tool.UpdatedBy,
@@ -302,7 +303,7 @@ func (r *ToolRepository) GetAllTools() ([]ToolDescription, error) {
 		if err != nil {
 			return nil, err
 		}
-		
+
 		// Set the circle relationship if it exists
 		if circleID.Valid {
 			circle.ID = int(circleID.Int64)
@@ -310,7 +311,7 @@ func (r *ToolRepository) GetAllTools() ([]ToolDescription, error) {
 			circle.Description = circleDesc.String
 			tool.Circle = &circle
 		}
-		
+
 		tools = append(tools, tool)
 	}
 
@@ -331,7 +332,7 @@ func (r *ToolRepository) FindToolByID(id int) (*ToolDescription, error) {
 	var circleID sql.NullInt64
 	var circleName sql.NullString
 	var circleDesc sql.NullString
-	
+
 	err := r.db.QueryRow(query, id).Scan(
 		&tool.ID, &tool.Name, &tool.Description, &tool.CircleID,
 		&tool.CreatedAt, &tool.UpdatedAt, &tool.CreatedBy, &tool.UpdatedBy,
@@ -341,7 +342,7 @@ func (r *ToolRepository) FindToolByID(id int) (*ToolDescription, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Set the circle relationship if it exists
 	if circleID.Valid {
 		circle.ID = int(circleID.Int64)
@@ -433,7 +434,7 @@ func (r *ToolRepository) GetActiveCheckouts() ([]ToolCheckout, error) {
 		if err != nil {
 			return nil, err
 		}
-		
+
 		checkout.Tool = &tool
 		checkout.Account = &account
 		checkouts = append(checkouts, checkout)
@@ -505,13 +506,13 @@ func (r *ToolRepository) DeleteTool(id int) error {
 	checkQuery := `
 		SELECT COUNT(*) FROM tool_checkout 
 		WHERE tool = $1 AND checkin_at IS NULL`
-	
+
 	var count int
 	err := r.db.QueryRow(checkQuery, id).Scan(&count)
 	if err != nil {
 		return err
 	}
-	
+
 	if count > 0 {
 		return fmt.Errorf("cannot delete tool: it has active checkouts")
 	}
@@ -773,7 +774,7 @@ func (r *DoorRepository) GetConfiguredDoors() []Door {
 			CircleIDs: []int{1}, // Admin circle
 		},
 		{
-			Key:       "workshop", 
+			Key:       "workshop",
 			Name:      "Workshop Door",
 			OpenTime:  5,
 			Type:      "mqtt",
@@ -831,13 +832,13 @@ func (r *DoorRepository) CanAccessDoor(accountID int, door Door, membershipRepo 
 // IsAccountInCircle checks if an account is a member of a circle
 func (r *DoorRepository) IsAccountInCircle(accountID int, circleID int) (bool, error) {
 	query := `SELECT COUNT(*) FROM circle_member WHERE account = $1 AND circle = $2`
-	
+
 	var count int
 	err := r.db.QueryRow(query, accountID, circleID).Scan(&count)
 	if err != nil {
 		return false, err
 	}
-	
+
 	return count > 0, nil
 }
 
@@ -845,7 +846,7 @@ func (r *DoorRepository) IsAccountInCircle(accountID int, circleID int) (bool, e
 func (r *DoorRepository) GetAccessibleDoors(accountID int, membershipRepo *MembershipRepository) ([]Door, error) {
 	allDoors := r.GetConfiguredDoors()
 	var accessibleDoors []Door
-	
+
 	for _, door := range allDoors {
 		canAccess, err := r.CanAccessDoor(accountID, door, membershipRepo)
 		if err != nil {
@@ -855,7 +856,7 @@ func (r *DoorRepository) GetAccessibleDoors(accountID int, membershipRepo *Membe
 			accessibleDoors = append(accessibleDoors, door)
 		}
 	}
-	
+
 	return accessibleDoors, nil
 }
 
@@ -932,7 +933,7 @@ func (r *AccountRepository) UpdateProfile(account *Account) error {
 		UPDATE accounts 
 		SET name = $1, phone = $2, updated_at = now() 
 		WHERE id = $3`
-	
+
 	var name, phone interface{}
 	if account.Name.Valid {
 		name = account.Name.String
@@ -940,7 +941,7 @@ func (r *AccountRepository) UpdateProfile(account *Account) error {
 	if account.Phone.Valid {
 		phone = account.Phone.String
 	}
-	
+
 	_, err := r.db.Exec(query, name, phone, account.ID)
 	return err
 }

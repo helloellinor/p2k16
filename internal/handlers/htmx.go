@@ -17,15 +17,15 @@ func NewHTMXUtils() *HTMXUtils {
 
 // FormField represents a form field for the htmx-form component
 type FormField struct {
-	Name        string                 `json:"name"`
-	Type        string                 `json:"type"`
-	Label       string                 `json:"label"`
-	Placeholder string                 `json:"placeholder"`
-	Value       string                 `json:"value"`
-	Required    bool                   `json:"required"`
-	Help        string                 `json:"help"`
-	Options     []FormFieldOption      `json:"options,omitempty"`
-	Attrs       map[string]string      `json:"attrs,omitempty"`
+	Name        string            `json:"name"`
+	Type        string            `json:"type"`
+	Label       string            `json:"label"`
+	Placeholder string            `json:"placeholder"`
+	Value       string            `json:"value"`
+	Required    bool              `json:"required"`
+	Help        string            `json:"help"`
+	Options     []FormFieldOption `json:"options,omitempty"`
+	Attrs       map[string]string `json:"attrs,omitempty"`
 }
 
 // FormFieldOption represents an option for select fields
@@ -96,9 +96,9 @@ type BadgeListData struct {
 
 // TableData represents data for the data-table component
 type TableData struct {
-	Headers      []string        `json:"headers"`
-	Rows         [][]string      `json:"rows"`
-	EmptyMessage string          `json:"emptyMessage"`
+	Headers      []string   `json:"headers"`
+	Rows         [][]string `json:"rows"`
+	EmptyMessage string     `json:"emptyMessage"`
 }
 
 // ModalData represents data for the modal component
@@ -117,7 +117,7 @@ func (h *HTMXUtils) RenderAlert(c *gin.Context, alertType, title, message string
 		Message:     message,
 		Dismissible: dismissible,
 	}
-	
+
 	html := h.renderTemplate("alert", alert)
 	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
 }
@@ -147,7 +147,7 @@ func (h *HTMXUtils) RenderLoading(c *gin.Context, text string) {
 	loading := map[string]string{
 		"text": text,
 	}
-	
+
 	html := h.renderTemplate("loading-spinner", loading)
 	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
 }
@@ -170,7 +170,7 @@ func (h *HTMXUtils) RenderBadgeList(c *gin.Context, badges []BadgeData, emptyMes
 		Badges:       badges,
 		EmptyMessage: emptyMessage,
 	}
-	
+
 	html := h.renderTemplate("badge-list", badgeList)
 	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
 }
@@ -182,7 +182,7 @@ func (h *HTMXUtils) RenderTable(c *gin.Context, headers []string, rows [][]strin
 		Rows:         rows,
 		EmptyMessage: emptyMessage,
 	}
-	
+
 	html := h.renderTemplate("data-table", table)
 	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
 }
@@ -227,7 +227,7 @@ func (h *HTMXUtils) renderTemplate(templateName string, data interface{}) string
 	// This is a simplified implementation
 	// In a real implementation, you would use Go's template system
 	// to load and render the templates from files
-	
+
 	switch templateName {
 	case "alert":
 		alert := data.(AlertData)
@@ -240,7 +240,7 @@ func (h *HTMXUtils) renderTemplate(templateName string, data interface{}) string
 			title = `<strong>` + alert.Title + `</strong> `
 		}
 		return `<div class="p2k16-alert p2k16-alert--` + alert.Type + `">` + dismissBtn + title + alert.Message + `</div>`
-		
+
 	case "loading-spinner":
 		data := data.(map[string]string)
 		text := ""
@@ -248,7 +248,7 @@ func (h *HTMXUtils) renderTemplate(templateName string, data interface{}) string
 			text = `<span class="p2k16-loading__text">` + data["text"] + `</span>`
 		}
 		return `<div class="p2k16-loading"><span class="p2k16-spinner"></span>` + text + `</div>`
-		
+
 	default:
 		return `<div class="p2k16-alert p2k16-alert--error">Template not found: ` + templateName + `</div>`
 	}

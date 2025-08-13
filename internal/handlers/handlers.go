@@ -20,6 +20,203 @@ type Handler struct {
 	membershipRepo *models.MembershipRepository
 }
 
+// renderNavbar returns a minimal, classless navbar based on auth state
+func (h *Handler) renderNavbar(c *gin.Context) string {
+	user := middleware.GetCurrentUser(c)
+	html := `<header><div><a href="/">P2K16</a>`
+	if user != nil {
+		html += `<form method="post" action="/logout" style="display:inline;margin-left:8px;"><button type="submit">Logout</button></form>`
+	}
+	html += `</div></header>`
+	return html
+}
+
+// renderNavbarWithTrail is like renderNavbar but appends an inline
+// breadcrumb trail (e.g., " / Profile") right after the brand.
+func (h *Handler) renderNavbarWithTrail(c *gin.Context, trail string) string {
+	user := middleware.GetCurrentUser(c)
+	html := `<header><div><a href="/">P2K16</a>`
+	if trail != "" {
+		// If trail is 'Profile' or 'Admin', render as links
+		switch trail {
+		case "Profile":
+			html += ` / <a href="/profile">Profile</a>`
+		case "Admin":
+			html += ` / <a href="/admin">Admin</a>`
+		default:
+			// For compound trails like 'Admin / Users', split and link first part if possible
+			if trail == "Admin / Users" {
+				html += ` / <a href="/admin">Admin</a> / <span>Users</span>`
+			} else if trail == "Admin / Tools" {
+				html += ` / <a href="/admin">Admin</a> / <span>Tools</span>`
+			} else if trail == "Admin / Companies" {
+				html += ` / <a href="/admin">Admin</a> / <span>Companies</span>`
+			} else if trail == "Admin / Circles" {
+				html += ` / <a href="/admin">Admin</a> / <span>Circles</span>`
+			} else if trail == "Admin / Logs" {
+				html += ` / <a href="/admin">Admin</a> / <span>Logs</span>`
+			} else if trail == "Admin / Config" {
+				html += ` / <a href="/admin">Admin</a> / <span>Config</span>`
+			} else if trail == "Create Badge" {
+				html += ` / <a href="/badges/new">Create Badge</a>`
+			} else {
+				html += ` / <span>` + trail + `</span>`
+			}
+		}
+	}
+	if user != nil {
+		html += `<form method="post" action="/logout" style="display:inline;margin-left:8px;"><button type="submit">Logout</button></form>`
+	}
+	html += `<nav>`
+	if user == nil {
+		html += `<a href="/login">Login</a>`
+	} else {
+		html += `<a href="/profile">Profile</a><a href="/admin">Admin</a>`
+	}
+	html += `</nav></div></header>`
+	return html
+}
+
+// renderUserBadgesSectionHTML builds the user badges section (classless, HTMX-friendly)
+func (h *Handler) renderUserBadgesSectionHTML(accountID int) string {
+	badges, _ := h.badgeRepo.GetBadgesForAccount(accountID)
+	if len(badges) == 0 {
+		return `
+<section id="user-badges" aria-labelledby="user-badges-title">
+	<h2 id="user-badges-title">Your Badges</h2>
+	<p>No badges yet.</p>
+	<button hx-get="/api/badges/available" hx-target="#available-badges" hx-swap="innerHTML">Browse Available Badges</button>
+	<div id="available-badges"></div>
+		  <div id="badge-feedback" aria-live="polite"></div>
+</section>`
+	}
+	html := `
+<section id="user-badges" aria-labelledby="user-badges-title">
+	<h2 id="user-badges-title">Your Badges</h2>
+		<ul>`
+	for _, badge := range badges {
+		html += `
+			<li>
+				<span>` + badge.BadgeDescription.Title + `</span>
+				<button 
+					hx-post="/api/badges/remove" 
+					hx-vals='{"account_badge_id":"` + strconv.Itoa(badge.ID) + `"}'
+					hx-target="#badge-feedback"
+					hx-swap="innerHTML">Remove</button>
+			</li>`
+	}
+	html += `
+	</ul>
+		<p>You have ` + fmt.Sprintf("%d", len(badges)) + ` badge(s).</p>
+	<button hx-get="/api/badges/available" hx-target="#available-badges" hx-swap="innerHTML">Browse More Badges</button>
+	<div id="available-badges"></div>
+		<div id="badge-feedback" aria-live="polite"></div>
+</section>`
+	return html
+}
+
+// renderUserBadgesListReadOnly renders a simple list of badges without actions
+func (h *Handler) renderUserBadgesListReadOnly(accountID int) string {
+	badges, _ := h.badgeRepo.GetBadgesForAccount(accountID)
+	html := `<section aria-labelledby="badges-title">
+		<h2 id="badges-title">Badges</h2>`
+	if len(badges) == 0 {
+		html += `<p>No badges yet.</p>`
+	} else {
+		html += `<ul>`
+		for _, badge := range badges {
+			html += `<li><span>` + badge.BadgeDescription.Title + `</span></li>`
+		}
+		html += `</ul>`
+		html += `<p>You have ` + fmt.Sprintf("%d", len(badges)) + ` badge(s).</p>`
+	}
+	html += `</section>`
+	return html
+}
+
+// renderProfileCardFrontHTML composes the front of the membership card
+func (h *Handler) renderProfileCardFrontHTML(user *middleware.AuthenticatedUser) string {
+	info := `<section aria-labelledby="info-title"><h2 id="info-title">Member</h2>` +
+		`<p><strong>Username:</strong> ` + user.Username + `</p>` +
+		`<p><strong>Email:</strong> ` + user.Account.Email + `</p>`
+	if user.Account.Name.Valid && user.Account.Name.String != "" {
+		info += `<p><strong>Name:</strong> ` + user.Account.Name.String + `</p>`
+	}
+	if user.Account.Phone.Valid && user.Account.Phone.String != "" {
+		info += `<p><strong>Phone:</strong> ` + user.Account.Phone.String + `</p>`
+	}
+	info += `</section>`
+
+	badges := h.renderUserBadgesListReadOnly(user.ID)
+
+	html := `<div>` +
+		`<div><button hx-get="/api/profile/card/back" hx-target="#membership-card" hx-swap="innerHTML" aria-label="Edit membership card">Edit</button></div>` +
+		info + badges + `</div>`
+	return html
+}
+
+// renderProfileCardBackHTML composes the back of the membership card (editing)
+func (h *Handler) renderProfileCardBackHTML(user *middleware.AuthenticatedUser) string {
+	// Change Password form
+	changePassword := `
+<section>
+	<header><h2>Change Password</h2></header>
+	<div>
+		<form hx-post="/api/profile/change-password" hx-target="#password-result">
+			<div>
+				<label for="oldPassword">Current Password</label>
+				<input type="password" id="oldPassword" name="oldPassword" required>
+			</div>
+			<div>
+				<label for="newPassword">New Password</label>
+				<input type="password" id="newPassword" name="newPassword" required>
+			</div>
+			<div>
+				<label for="confirmPassword">Confirm New Password</label>
+				<input type="password" id="confirmPassword" name="confirmPassword" required>
+			</div>
+			<button type="submit">Change Password</button>
+		</form>
+		<div id="password-result"></div>
+	</div>
+</section>`
+
+	// Profile details form
+	details := `
+<section>
+	<header><h2>Profile Details</h2></header>
+	<div>
+		<form hx-post="/api/profile/update" hx-target="#profile-result">
+			<div>
+				<label for="name">Full Name</label>
+				<input type="text" id="name" name="name" placeholder="Enter your full name">
+				<div>This will be displayed on your public profile</div>
+			</div>
+			<div>
+				<label for="email">Email Address</label>
+				<input type="email" id="email" name="email" value="` + user.Account.Email + `" readonly>
+				<div>Contact an administrator to change your email address</div>
+			</div>
+			<div>
+				<label for="phone">Phone Number</label>
+				<input type="tel" id="phone" name="phone" placeholder="Enter your phone number">
+				<div>Used for emergency contact and door access notifications</div>
+			</div>
+			<button type="submit">Save Changes</button>
+		</form>
+		<div id="profile-result"></div>
+	</div>
+</section>`
+
+	// Editable badges section
+	badges := h.renderUserBadgesSectionHTML(user.ID)
+
+	html := `<div>` +
+		`<div><button hx-get="/api/profile/card/front" hx-target="#membership-card" hx-swap="innerHTML" aria-label="Done editing">Done</button></div>` +
+		changePassword + details + badges + `</div>`
+	return html
+}
+
 func NewHandler(accountRepo *models.AccountRepository, circleRepo *models.CircleRepository, badgeRepo *models.BadgeRepository, toolRepo *models.ToolRepository, eventRepo *models.EventRepository, membershipRepo *models.MembershipRepository) *Handler {
 	return &Handler{
 		accountRepo:    accountRepo,
@@ -40,84 +237,69 @@ func (h *Handler) GetAccountRepo() *models.AccountRepository {
 func (h *Handler) Home(c *gin.Context) {
 	logging.LogHandlerAction("PAGE REQUEST", "Home page visited")
 	user := middleware.GetCurrentUser(c)
-	userInfo := ""
 
 	if user != nil {
 		logging.LogHandlerAction("USER STATUS", fmt.Sprintf("Authenticated user: %s", user.Username))
-		userInfo = `
-			<div class="p2k16-header__user">
-				<span class="p2k16-text--secondary">Welcome, <strong>` + user.Username + `</strong></span>
-				<a href="/logout" class="p2k16-button p2k16-button--secondary p2k16-button--sm">Logout</a>
-			</div>`
 	} else {
 		logging.LogHandlerAction("USER STATUS", "Anonymous user")
 	}
 
-	html := `
-<!DOCTYPE html>
+	html := `<!DOCTYPE html>
 <html>
 <head>
-    <title>P2K16 - Hackerspace Management System</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
-    <link href="/styles/p2k16-design-system.css" rel="stylesheet">
+	<title>P2K16</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    
 </head>
 <body>
-    <header class="p2k16-header">
-        <div class="p2k16-container p2k16-header__container">
-            <a href="/" class="p2k16-header__brand">P2K16</a>
-            <nav class="p2k16-header__nav">` + userInfo + `</nav>
-        </div>
-    </header>
+	` + h.renderNavbar(c) + `
     
-    <main class="p2k16-container p2k16-mt-8">
-        <div class="p2k16-text--center p2k16-mb-8">
-            <h1>Welcome to P2K16</h1>
-            <p class="p2k16-text--secondary">Hackerspace Management System</p>
-        </div>
-        
-        <div class="p2k16-grid p2k16-grid--2-col">
-            <div class="p2k16-card">
-                <div class="p2k16-card__header">
-                    <h5 class="p2k16-card__title">Quick Actions</h5>
-                </div>
-                <div class="p2k16-card__body">`
-
+	<main>
+		<div>
+			<h1>Welcome to P2K16</h1>
+			<p>Hackerspace Management System</p>
+		</div>
+`
 	if user == nil {
 		html += `
-                        <a href="/login" class="p2k16-button p2k16-button--primary">Login</a>`
-	} else {
-		html += `
-                        <a href="/dashboard" class="p2k16-button p2k16-button--primary">Dashboard</a>
-                        <a href="/profile" class="p2k16-button p2k16-button--secondary p2k16-mt-4">Profile</a>`
+		<section>
+			<header>
+				<h2>Login</h2>
+			</header>
+			<div>
+				<form hx-post="/api/auth/login" hx-target="#login-result" method="post" action="/api/auth/login">
+					<div>
+						<label for="username">Username</label>
+						<input type="text" id="username" name="username" required>
+					</div>
+					<div>
+						<label for="password">Password</label>
+						<input type="password" id="password" name="password" required>
+					</div>
+					<div>
+						<button type="submit">Login</button>
+					</div>
+				</form>
+				<div id="login-result"></div>
+			</div>
+		</section>
+		`
 	}
-
 	html += `
-                        <button class="p2k16-button p2k16-button--secondary p2k16-mt-4" 
-                                hx-get="/api/members/active" 
-                                hx-target="#member-list">Show Active Members</button>
-                    </div>
-                </div>
-            </div>
-            <div class="p2k16-card">
-                <div class="p2k16-card__header">
-                    <h5 class="p2k16-card__title">System Status</h5>
-                </div>
-                <div class="p2k16-card__body">
-                        <div class="p2k16-badge p2k16-badge--success">Online</div>
-                        <p class="p2k16-mt-4">Database connected - all systems operational</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <div class="p2k16-mt-8">
-            <h4>Active Members</h4>
-            <div id="member-list" class="p2k16-mt-4">
-                <p class="p2k16-text--muted">Click "Show Active Members" to load...</p>
-            </div>
-        </div>
-    </main>
+		<section>
+			<article>
+				<header>
+					<h2>System Status</h2>
+				</header>
+				<div>
+					<p>Online</p>
+					<p>Database connected - all systems operational</p>
+				</div>
+			</article>
+		</section>
+
+	</main>
 </body>
 </html>`
 
@@ -141,42 +323,36 @@ func (h *Handler) Login(c *gin.Context) {
     <title>Login - P2K16</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
-    <link href="/styles/p2k16-design-system.css" rel="stylesheet">
+    
 </head>
 <body>
-    <header class="p2k16-header">
-        <div class="p2k16-container p2k16-header__container">
-            <a href="/" class="p2k16-header__brand">P2K16</a>
-        </div>
-    </header>
+		` + h.renderNavbar(c) + `
     
-    <main class="p2k16-container p2k16-container--narrow p2k16-mt-8">
-        <div class="p2k16-card">
-            <div class="p2k16-card__header">
-                <h4 class="p2k16-card__title p2k16-text--center">Login to P2K16</h4>
-            </div>
-            <div class="p2k16-card__body">`
+	<main>
+		<section>
+			<header>
+				<h2>Login to P2K16</h2>
+			</header>
+			<div>`
 
 	html += `
-                        <form class="p2k16-form" hx-post="/api/auth/login" hx-target="#login-result" method="post" action="/api/auth/login">
-                            <div class="p2k16-field">
-                                <label for="username" class="p2k16-field__label">Username</label>
-                                <input type="text" class="p2k16-field__input" id="username" name="username" required>
-                            </div>
-                            <div class="p2k16-field">
-                                <label for="password" class="p2k16-field__label">Password</label>
-                                <input type="password" class="p2k16-field__input" id="password" name="password" required>
-                            </div>
-                            <div class="p2k16-flex p2k16-flex--between">
-                                <button type="submit" class="p2k16-button p2k16-button--primary">Login</button>
-                                <a href="/" class="p2k16-button p2k16-button--secondary">Back to Home</a>
-                            </div>
-                        </form>
-                        <div id="login-result" class="p2k16-mt-6"></div>
+						<form hx-post="/api/auth/login" hx-target="#login-result" method="post" action="/api/auth/login">
+							<div>
+								<label for="username">Username</label>
+								<input type="text" id="username" name="username" required>
+							</div>
+							<div>
+								<label for="password">Password</label>
+								<input type="password" id="password" name="password" required>
+							</div>
+							<div>
+								<button type="submit">Login</button>
+							</div>
+						</form>
+						<div id="login-result"></div>
                     </div>
-                </div>
-            </div>
-        </div>
+                
+		</section>
     </main>
 </body>
 </html>`
@@ -197,172 +373,28 @@ func (h *Handler) Logout(c *gin.Context) {
 	c.Redirect(http.StatusFound, "/")
 }
 
-// Dashboard shows the user dashboard (requires authentication)
-func (h *Handler) Dashboard(c *gin.Context) {
-	logging.LogHandlerAction("PAGE REQUEST", "Dashboard page visited")
-	user := middleware.GetCurrentUser(c)
-	if user != nil {
-		logging.LogHandlerAction("USER ACCESS", fmt.Sprintf("Dashboard accessed by user: %s", user.Username))
-	}
-
-	html := `
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Dashboard - P2K16</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
-    <link href="/styles/p2k16-design-system.css" rel="stylesheet">
-</head>
-<body>
-    <header class="p2k16-header">
-        <div class="p2k16-container p2k16-header__container">
-            <a href="/" class="p2k16-header__brand">P2K16</a>
-            <nav class="p2k16-header__nav">
-                <div class="p2k16-header__user">
-                    <span class="p2k16-text--secondary">Welcome, <strong>` + user.Username + `</strong></span>
-                    <a href="/logout" class="p2k16-button p2k16-button--secondary p2k16-button--sm">Logout</a>
-                </div>
-            </nav>
-        </div>
-    </header>
-    
-    <main class="p2k16-container p2k16-mt-8">
-        <div class="p2k16-mb-8">
-            <h1>Dashboard</h1>
-        </div>
-        
-        <div class="p2k16-grid p2k16-grid--4-col">
-            <div class="p2k16-card">
-                <div class="p2k16-card__header">
-                    <h5 class="p2k16-card__title">Your Badges</h5>
-                </div>
-                <div class="p2k16-card__body">
-                    <div id="user-badges">
-                        <button class="p2k16-button p2k16-button--primary p2k16-button--full" 
-                                hx-get="/api/user/badges" 
-                                hx-target="#user-badges">Load Badges</button>
-                    </div>
-                </div>
-            </div>
-            <div class="p2k16-card">
-                <div class="p2k16-card__header">
-                    <h5 class="p2k16-card__title">Tool Management</h5>
-                </div>
-                <div class="p2k16-card__body">
-                    <div id="tool-section">
-                        <button class="p2k16-button p2k16-button--success p2k16-button--full p2k16-mb-4" 
-                                hx-get="/api/tools" 
-                                hx-target="#tool-section">Browse Tools</button>
-                        <button class="p2k16-button p2k16-button--warning p2k16-button--full" 
-                                hx-get="/api/tools/checkouts" 
-                                hx-target="#tool-section">Active Checkouts</button>
-                    </div>
-                </div>
-            </div>
-            <div class="p2k16-card">
-                <div class="p2k16-card__header">
-                    <h5 class="p2k16-card__title">Membership</h5>
-                </div>
-                <div class="p2k16-card__body">
-                    <div id="membership-section">
-                        <button class="p2k16-button p2k16-button--secondary p2k16-button--full p2k16-mb-4" 
-                                hx-get="/api/membership/status" 
-                                hx-target="#membership-section">My Status</button>
-                        <button class="p2k16-button p2k16-button--secondary p2k16-button--full" 
-                                hx-get="/api/membership/active" 
-                                hx-target="#membership-section">Active Members</button>
-                    </div>
-                </div>
-            </div>
-            <div class="p2k16-card">
-                <div class="p2k16-card__header">
-                    <h5 class="p2k16-card__title">Quick Actions</h5>
-                </div>
-                <div class="p2k16-card__body">
-                    <a href="/profile" class="p2k16-button p2k16-button--primary p2k16-button--full p2k16-mb-4">Edit Profile</a>
-                    <a href="/admin" class="p2k16-button p2k16-button--warning p2k16-button--full p2k16-mb-4">Administration</a>
-                    <a href="/" class="p2k16-button p2k16-button--secondary p2k16-button--full">Back to Home</a>
-                </div>
-            </div>
-        </div>
-    </main>
-</body>
-</html>`
-
-	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
-}
-
-// GetActiveMembers returns a list of active members (for HTMX)
-func (h *Handler) GetActiveMembers(c *gin.Context) {
-	logging.LogHandlerAction("API REQUEST", "Active members list requested")
-	// This is a placeholder - in real implementation we'd fetch from database
-	logging.LogWarning("UNIMPLEMENTED", "GetActiveMembers not yet connected to database - returning mock data")
-	html := `
-		<div class="p2k16-grid p2k16-grid--2-col">
-			<div class="p2k16-card">
-				<div class="p2k16-card__body">
-					<h6 class="p2k16-mb-4">Super Admin</h6>
-					<p class="p2k16-text--secondary p2k16-mb-4">System Administrator</p>
-					<small class="p2k16-text--muted">Last active: 2 hours ago</small>
-				</div>
-			</div>
-			<div class="p2k16-card">
-				<div class="p2k16-card__body">
-					<h6 class="p2k16-mb-4">Foo User</h6>
-					<p class="p2k16-text--secondary p2k16-mb-4">Regular Member</p>
-					<small class="p2k16-text--muted">Last active: 1 day ago</small>
-				</div>
-			</div>
-		</div>`
-
-	logging.LogHandlerAction("API RESPONSE", "Active members list returned (mock data)")
-	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
-}
+// Active members listing is intentionally not exposed on the landing page.
 
 // GetUserBadges returns user badges (for HTMX, requires authentication)
 func (h *Handler) GetUserBadges(c *gin.Context) {
 	logging.LogHandlerAction("API REQUEST", "User badges requested")
 	user := middleware.GetCurrentUser(c)
-	
-	badges, err := h.badgeRepo.GetBadgesForAccount(user.ID)
-	if err != nil {
-		logging.LogError("DATABASE ERROR", fmt.Sprintf("Failed to fetch badges for user %s: %v", user.Username, err))
-		c.Data(http.StatusInternalServerError, "text/html; charset=utf-8", 
-			[]byte(`<div class="alert alert-danger">Failed to load badges</div>`))
-		return
-	}
-	
-	if len(badges) == 0 {
-		logging.LogHandlerAction("BADGES RESULT", fmt.Sprintf("No badges found for user: %s", user.Username))
-		html := `
-			<div class="text-center">
-				<p class="text-muted">No badges yet!</p>
-				<button class="btn btn-primary" hx-get="/api/badges/available" hx-target="#available-badges" hx-swap="innerHTML">
-					Browse Available Badges
-				</button>
-				<div id="available-badges" class="mt-3"></div>
-			</div>`
-		c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
-		return
-	}
-	
-	html := `<div class="badge-list">`
-	for _, badge := range badges {
-		color := "primary"
-		if badge.BadgeDescription.Color.Valid && badge.BadgeDescription.Color.String != "" {
-			color = badge.BadgeDescription.Color.String
-		}
-		
-		html += `<span class="badge bg-` + color + ` me-2 mb-2">` + badge.BadgeDescription.Title + `</span>`
-	}
-	html += `<p class="text-muted mt-2">You have ` + fmt.Sprintf("%d", len(badges)) + ` badges.</p>`
-	html += `<button class="btn btn-sm btn-outline-primary" hx-get="/api/badges/available" hx-target="#available-badges" hx-swap="innerHTML">
-				Browse More Badges
-			</button>
-			<div id="available-badges" class="mt-3"></div>
-		</div>`
-	
+	// Render centralized section
+	html := h.renderUserBadgesSectionHTML(user.ID)
+	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
+}
+
+// ProfileCardFront returns the front of the membership card (requires auth)
+func (h *Handler) ProfileCardFront(c *gin.Context) {
+	user := middleware.GetCurrentUser(c)
+	html := h.renderProfileCardFrontHTML(user)
+	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
+}
+
+// ProfileCardBack returns the back (editing) of the membership card (requires auth)
+func (h *Handler) ProfileCardBack(c *gin.Context) {
+	user := middleware.GetCurrentUser(c)
+	html := h.renderProfileCardBackHTML(user)
 	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
 }
 
@@ -377,7 +409,7 @@ func (h *Handler) AuthLogin(c *gin.Context) {
 	if username == "" || password == "" {
 		logging.LogError("LOGIN FAILED", "Missing username or password")
 		c.Data(http.StatusBadRequest, "text/html; charset=utf-8",
-			[]byte(`<div class="alert alert-danger">Username and password are required</div>`))
+			[]byte(`<p>Username and password are required</p>`))
 		return
 	}
 
@@ -386,37 +418,35 @@ func (h *Handler) AuthLogin(c *gin.Context) {
 	if err != nil {
 		logging.LogError("LOGIN FAILED", fmt.Sprintf("User '%s' not found in database: %v", username, err))
 		c.Data(http.StatusUnauthorized, "text/html; charset=utf-8",
-			[]byte(`<div class="alert alert-danger">Invalid username or password</div>`))
+			[]byte(`<p>Invalid username or password</p>`))
 		return
 	}
-	
+
 	logging.LogHandlerAction("USER FOUND", fmt.Sprintf("User '%s' found in database, validating password", username))
 	if !account.ValidatePassword(password) {
 		logging.LogError("LOGIN FAILED", fmt.Sprintf("Invalid password for user '%s'", username))
 		c.Data(http.StatusUnauthorized, "text/html; charset=utf-8",
-			[]byte(`<div class="alert alert-danger">Invalid username or password</div>`))
+			[]byte(`<p>Invalid username or password</p>`))
 		return
 	}
-	
+
 	logging.LogSuccess("LOGIN SUCCESS", fmt.Sprintf("User authenticated: %s", username))
 
 	// Login user by setting session
 	if err := middleware.LoginUser(c, account); err != nil {
 		logging.LogError("SESSION ERROR", fmt.Sprintf("Failed to create session for user %s: %v", username, err))
 		c.Data(http.StatusInternalServerError, "text/html; charset=utf-8",
-			[]byte(`<div class="alert alert-danger">Failed to login. Please try again.</div>`))
+			[]byte(`<p>Failed to login. Please try again.</p>`))
 		return
 	}
 
 	// Successful login - redirect via HTMX
 	html := `
-		<div class="alert alert-success">
-			Login successful! Welcome, ` + account.Username + `
-		</div>
+		<section aria-live="polite">
+			<p>Login successful! Welcome, ` + account.Username + `</p>
+		</section>
 		<script>
-			setTimeout(function() {
-				window.location.href = '/dashboard';
-			}, 1000);
+			window.location.href = '/';
 		</script>`
 
 	logging.LogSuccess("SESSION CREATED", fmt.Sprintf("Session created for user: %s", username))
@@ -425,56 +455,49 @@ func (h *Handler) AuthLogin(c *gin.Context) {
 
 // GetAvailableBadges returns a list of available badge descriptions
 func (h *Handler) GetAvailableBadges(c *gin.Context) {
+	user := middleware.GetCurrentUser(c)
 	descriptions, err := h.badgeRepo.GetAllDescriptions()
 	if err != nil {
 		c.Data(http.StatusInternalServerError, "text/html; charset=utf-8",
-			[]byte(`<div class="alert alert-danger">Failed to load available badges</div>`))
+			[]byte(`<p>Failed to load available badges</p>`))
 		return
 	}
 
 	html := `
-<div class="card">
-<div class="card-header">
-<h6>Available Badges</h6>
-</div>
-<div class="card-body">
-<div class="row">`
+<section aria-labelledby="available-badges-title">
+    <h2 id="available-badges-title">Explore Badges</h2>
+    <ul>`
 
 	for _, desc := range descriptions {
-		color := "outline-primary"
-		if desc.Color.Valid && desc.Color.String != "" {
-			color = "outline-" + desc.Color.String
+		// Check if user already has this badge
+		has, _ := h.badgeRepo.AccountHasBadge(user.ID, desc.ID)
+		if has {
+			html += `
+		<li>
+			<span>` + desc.Title + `</span>
+			<span>(already added)</span>
+		</li>`
+		} else {
+			html += `
+		<li>
+			<span>` + desc.Title + `</span>
+			<button 
+				hx-post="/api/badges/award" 
+				hx-vals='{"badge_title":"` + desc.Title + `"}'
+				hx-target="#badge-feedback"
+				hx-swap="innerHTML">Add to My Badges</button>
+		</li>`
 		}
-
-		html += `
-<div class="col-md-6 mb-2">
-<div class="d-flex justify-content-between align-items-center">
-<span class="badge ` + color + `">` + desc.Title + `</span>
-<button class="btn btn-sm btn-success" 
-        hx-post="/api/badges/award" 
-        hx-vals='{"badge_title":"` + desc.Title + `"}'
-        hx-target="#badge-result"
-        hx-swap="innerHTML">
-Award to Self
-</button>
-</div>
-</div>`
 	}
 
 	html += `
-</div>
-<div id="badge-result" class="mt-3"></div>
-<div class="mt-3">
-<h6>Create New Badge</h6>
-<form hx-post="/api/badges/create" hx-target="#badge-result">
-<div class="input-group">
-<input type="text" class="form-control" name="title" placeholder="Badge title" required>
-<button type="submit" class="btn btn-primary">Create & Award</button>
-</div>
-</form>
-</div>
-</div>
-</div>`
+	</ul>
+	<div id="badge-feedback" aria-live="polite"></div>
+	<div>
+		<p>Want something new? Use the dedicated page to create a badge.</p>
+		<p><a href="/badges/new">Create a new badge</a></p>
+	</div>
+</section>`
 
 	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
 }
@@ -486,7 +509,7 @@ func (h *Handler) CreateBadge(c *gin.Context) {
 
 	if title == "" {
 		c.Data(http.StatusBadRequest, "text/html; charset=utf-8",
-			[]byte(`<div class="alert alert-danger">Badge title is required</div>`))
+			[]byte(`<p>Badge title is required</p>`))
 		return
 	}
 
@@ -494,7 +517,7 @@ func (h *Handler) CreateBadge(c *gin.Context) {
 	existing, _ := h.badgeRepo.FindBadgeDescriptionByTitle(title)
 	if existing != nil {
 		c.Data(http.StatusBadRequest, "text/html; charset=utf-8",
-			[]byte(`<div class="alert alert-warning">Badge "`+title+`" already exists</div>`))
+			[]byte(`<p>Badge "`+title+`" already exists</p>`))
 		return
 	}
 
@@ -502,7 +525,7 @@ func (h *Handler) CreateBadge(c *gin.Context) {
 	desc, err := h.badgeRepo.CreateBadgeDescription(title, user.ID)
 	if err != nil {
 		c.Data(http.StatusInternalServerError, "text/html; charset=utf-8",
-			[]byte(`<div class="alert alert-danger">Failed to create badge</div>`))
+			[]byte(`<p>Failed to create badge</p>`))
 		return
 	}
 
@@ -510,17 +533,17 @@ func (h *Handler) CreateBadge(c *gin.Context) {
 	_, err = h.badgeRepo.AwardBadge(user.ID, desc.ID, user.ID)
 	if err != nil {
 		c.Data(http.StatusInternalServerError, "text/html; charset=utf-8",
-			[]byte(`<div class="alert alert-danger">Badge created but failed to award</div>`))
+			[]byte(`<p>Badge created but failed to award</p>`))
 		return
 	}
 
+	// Build success feedback and update the user badges via OOB swap
+	updated := h.renderUserBadgesSectionHTML(user.ID)
 	html := `
-<div class="alert alert-success">
-Badge "` + title + `" created and awarded! 
-<button class="btn btn-sm btn-primary ms-2" hx-get="/api/user/badges" hx-target="#user-badges">
-Refresh Badges
-</button>
-</div>`
+<section aria-live="polite">
+	<p>Badge "` + title + `" created and added to your badges.</p>
+</section>
+` + `<div id="user-badges" hx-swap-oob="true">` + updated + `</div>`
 
 	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
 }
@@ -532,7 +555,7 @@ func (h *Handler) AwardBadge(c *gin.Context) {
 
 	if badgeTitle == "" {
 		c.Data(http.StatusBadRequest, "text/html; charset=utf-8",
-			[]byte(`<div class="alert alert-danger">Badge title is required</div>`))
+			[]byte(`<p>Badge title is required</p>`))
 		return
 	}
 
@@ -540,7 +563,15 @@ func (h *Handler) AwardBadge(c *gin.Context) {
 	desc, err := h.badgeRepo.FindBadgeDescriptionByTitle(badgeTitle)
 	if err != nil {
 		c.Data(http.StatusNotFound, "text/html; charset=utf-8",
-			[]byte(`<div class="alert alert-danger">Badge "`+badgeTitle+`" not found</div>`))
+			[]byte(`<p>Badge "`+badgeTitle+`" not found</p>`))
+		return
+	}
+
+	// Prevent duplicates
+	has, _ := h.badgeRepo.AccountHasBadge(user.ID, desc.ID)
+	if has {
+		c.Data(http.StatusOK, "text/html; charset=utf-8",
+			[]byte(`<section aria-live="polite"><p>You already have '`+badgeTitle+`'.</p></section>`))
 		return
 	}
 
@@ -548,17 +579,36 @@ func (h *Handler) AwardBadge(c *gin.Context) {
 	_, err = h.badgeRepo.AwardBadge(user.ID, desc.ID, user.ID)
 	if err != nil {
 		c.Data(http.StatusInternalServerError, "text/html; charset=utf-8",
-			[]byte("<div class=\"alert alert-danger\">Failed to award badge</div>"))
+			[]byte("<p>Failed to award badge</p>"))
 		return
 	}
 
-	html := "<div class=\"alert alert-success\">" +
-		"Badge \"" + badgeTitle + "\" awarded! " +
-		"<button class=\"btn btn-sm btn-primary ms-2\" hx-get=\"/api/user/badges\" hx-target=\"#user-badges\">" +
-		"Refresh Badges" +
-		"</button>" +
-		"</div>"
+	// Return feedback and out-of-band update of the user badges section
+	updated := h.renderUserBadgesSectionHTML(user.ID)
+	html := "<section aria-live=\"polite\"><p>Added '" + badgeTitle + "' to your badges.</p></section>" +
+		"<div id=\"user-badges\" hx-swap-oob=\"true\">" + updated + "</div>"
 
+	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
+}
+
+// RemoveBadge removes an awarded badge from the current user
+func (h *Handler) RemoveBadge(c *gin.Context) {
+	user := middleware.GetCurrentUser(c)
+	idStr := c.PostForm("account_badge_id")
+	accountBadgeID, err := strconv.Atoi(idStr)
+	if err != nil {
+		c.Data(http.StatusBadRequest, "text/html; charset=utf-8",
+			[]byte(`<p>Invalid badge id</p>`))
+		return
+	}
+	if err := h.badgeRepo.DeleteAccountBadge(accountBadgeID, user.ID); err != nil {
+		c.Data(http.StatusInternalServerError, "text/html; charset=utf-8",
+			[]byte(`<p>Failed to remove badge</p>`))
+		return
+	}
+	updated := h.renderUserBadgesSectionHTML(user.ID)
+	html := `<section aria-live="polite"><p>Badge removed.</p></section>` +
+		`<div id="user-badges" hx-swap-oob="true">` + updated + `</div>`
 	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
 }
 
@@ -567,16 +617,13 @@ func (h *Handler) GetTools(c *gin.Context) {
 	tools, err := h.toolRepo.GetAllTools()
 	if err != nil {
 		c.Data(http.StatusInternalServerError, "text/html; charset=utf-8",
-			[]byte("<div class=\"alert alert-danger\">Failed to load tools</div>"))
+			[]byte("<p>Failed to load tools</p>"))
 		return
 	}
 
-	html := "<div class=\"card\">" +
-		"<div class=\"card-header\">" +
-		"<h6>Available Tools</h6>" +
-		"</div>" +
-		"<div class=\"card-body\">" +
-		"<div class=\"row\">"
+	html := "<section aria-labelledby=\"tools-title\">" +
+		"<h2 id=\"tools-title\">Available Tools</h2>" +
+		"<div>"
 
 	for _, tool := range tools {
 		html += "<div class=\"col-md-6 mb-3\">" +
@@ -597,9 +644,8 @@ func (h *Handler) GetTools(c *gin.Context) {
 	}
 
 	html += "</div>" +
-		"<div id=\"tool-result\" class=\"mt-3\"></div>" +
-		"</div>" +
-		"</div>"
+		"<div id=\"tool-result\"></div>" +
+		"</section>"
 
 	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
 }
@@ -609,42 +655,36 @@ func (h *Handler) GetActiveCheckouts(c *gin.Context) {
 	checkouts, err := h.toolRepo.GetActiveCheckouts()
 	if err != nil {
 		c.Data(http.StatusInternalServerError, "text/html; charset=utf-8",
-			[]byte("<div class=\"alert alert-danger\">Failed to load active checkouts</div>"))
+			[]byte("<p>Failed to load active checkouts</p>"))
 		return
 	}
 
-	html := "<div class=\"card\">" +
-		"<div class=\"card-header\">" +
-		"<h6>Currently Checked Out Tools</h6>" +
-		"</div>" +
-		"<div class=\"card-body\">"
+	html := "<section aria-labelledby=\"checkouts-title\">" +
+		"<h2 id=\"checkouts-title\">Currently Checked Out Tools</h2>" +
+		"<div>"
 
 	if len(checkouts) == 0 {
-		html += "<p class=\"text-muted\">No tools currently checked out.</p>"
+		html += "<p>No tools currently checked out.</p>"
 	} else {
-		html += "<div class=\"list-group\">"
+		html += "<ul>"
 		for _, checkout := range checkouts {
-			html += "<div class=\"list-group-item d-flex justify-content-between align-items-center\">" +
-				"<div>" +
-				"<h6 class=\"mb-1\">" + checkout.Tool.Name + " (" + checkout.Tool.Description.String + ")</h6>" +
-				"<p class=\"mb-1\">Checked out by: " + checkout.Account.Username + "</p>" +
-				"<small>Since: " + checkout.CheckoutAt.Format("2006-01-02 15:04") + "</small>" +
-				"</div>" +
-				"<button class=\"btn btn-warning btn-sm\" " +
+			html += "<li>" +
+				"<div>" + checkout.Tool.Name + " (" + checkout.Tool.Description.String + ") - Checked out by: " + checkout.Account.Username + " - Since: " + checkout.CheckoutAt.Format("2006-01-02 15:04") + "</div>" +
+				"<button " +
 				"hx-post=\"/api/tools/checkin\" " +
 				"hx-vals='{\"checkout_id\":\"" + strconv.Itoa(checkout.ID) + "\"}' " +
 				"hx-target=\"#tool-result\" " +
 				"hx-swap=\"innerHTML\">" +
 				"Check In" +
 				"</button>" +
-				"</div>"
+				"</li>"
 		}
-		html += "</div>"
+		html += "</ul>"
 	}
 
-	html += "<div id=\"tool-result\" class=\"mt-3\"></div>" +
+	html += "<div id=\"tool-result\"></div>" +
 		"</div>" +
-		"</div>"
+		"</section>"
 
 	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
 }
@@ -657,7 +697,7 @@ func (h *Handler) CheckoutTool(c *gin.Context) {
 	toolID, err := strconv.Atoi(toolIDStr)
 	if err != nil {
 		c.Data(http.StatusBadRequest, "text/html; charset=utf-8",
-			[]byte("<div class=\"alert alert-danger\">Invalid tool ID</div>"))
+			[]byte("<p>Invalid tool ID</p>"))
 		return
 	}
 
@@ -665,7 +705,7 @@ func (h *Handler) CheckoutTool(c *gin.Context) {
 	tool, err := h.toolRepo.FindToolByID(toolID)
 	if err != nil {
 		c.Data(http.StatusNotFound, "text/html; charset=utf-8",
-			[]byte("<div class=\"alert alert-danger\">Tool not found</div>"))
+			[]byte("<p>Tool not found</p>"))
 		return
 	}
 
@@ -673,19 +713,19 @@ func (h *Handler) CheckoutTool(c *gin.Context) {
 	_, err = h.toolRepo.CheckoutTool(toolID, user.ID)
 	if err != nil {
 		c.Data(http.StatusInternalServerError, "text/html; charset=utf-8",
-			[]byte("<div class=\"alert alert-danger\">Failed to checkout tool</div>"))
+			[]byte("<p>Failed to checkout tool</p>"))
 		return
 	}
 
 	// Log event
 	h.eventRepo.CreateEvent("tool", "checkout", user.ID)
 
-	html := "<div class=\"alert alert-success\">" +
-		"Successfully checked out \"" + tool.Name + "\"! " +
-		"<button class=\"btn btn-sm btn-primary ms-2\" hx-get=\"/api/tools/checkouts\" hx-target=\"#active-checkouts\">" +
+	html := "<section aria-live=\"polite\">" +
+		"<p>Successfully checked out \"" + tool.Name + "\"!</p>" +
+		"<button hx-get=\"/api/tools/checkouts\" hx-target=\"#active-checkouts\">" +
 		"Refresh Checkouts" +
 		"</button>" +
-		"</div>"
+		"</section>"
 
 	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
 }
@@ -698,7 +738,7 @@ func (h *Handler) CheckinTool(c *gin.Context) {
 	checkoutID, err := strconv.Atoi(checkoutIDStr)
 	if err != nil {
 		c.Data(http.StatusBadRequest, "text/html; charset=utf-8",
-			[]byte("<div class=\"alert alert-danger\">Invalid checkout ID</div>"))
+			[]byte("<p>Invalid checkout ID</p>"))
 		return
 	}
 
@@ -706,22 +746,23 @@ func (h *Handler) CheckinTool(c *gin.Context) {
 	err = h.toolRepo.CheckinTool(checkoutID)
 	if err != nil {
 		c.Data(http.StatusInternalServerError, "text/html; charset=utf-8",
-			[]byte("<div class=\"alert alert-danger\">Failed to check in tool: "+err.Error()+"</div>"))
+			[]byte("<p>Failed to check in tool: "+err.Error()+"</p>"))
 		return
 	}
 
 	// Log event
 	h.eventRepo.CreateEvent("tool", "checkin", user.ID)
 
-	html := "<div class=\"alert alert-success\">" +
-		"Tool checked in successfully! " +
-		"<button class=\"btn btn-sm btn-primary ms-2\" hx-get=\"/api/tools/checkouts\" hx-target=\"#active-checkouts\">" +
+	html := "<section aria-live=\"polite\">" +
+		"<p>Tool checked in successfully!</p>" +
+		"<button hx-get=\"/api/tools/checkouts\" hx-target=\"#active-checkouts\">" +
 		"Refresh Checkouts" +
 		"</button>" +
-		"</div>"
+		"</section>"
 
 	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
 }
+
 // GetMembershipStatus returns the membership status for current user
 func (h *Handler) GetMembershipStatus(c *gin.Context) {
 	user := middleware.GetCurrentUser(c)
@@ -741,42 +782,38 @@ func (h *Handler) GetMembershipStatus(c *gin.Context) {
 	// Get membership details
 	membership, _ := h.membershipRepo.GetMembershipByAccount(user.ID)
 
-	html := "<div class=\"card\">" +
-		"<div class=\"card-header\">" +
-		"<h6>Membership Status</h6>" +
-		"</div>" +
-		"<div class=\"card-body\">"
+	html := "<section aria-labelledby=\"membership-title\">" +
+		"<h2 id=\"membership-title\">Membership Status</h2>" +
+		"<div>"
 
 	if isActive {
-		html += "<div class=\"alert alert-success\">" +
-			"<strong>Active Member</strong>"
+		html += "<p>" +
+			"Active Member"
 		if isPaying {
 			html += " (Paying Member)"
 		}
 		if isEmployee {
 			html += " (Company Employee)"
 		}
-		html += "</div>"
+		html += "</p>"
 	} else {
-		html += "<div class=\"alert alert-warning\">" +
-			"<strong>Inactive Member</strong>" +
-			"</div>"
+		html += "<p>Inactive Member</p>"
 	}
 
 	if membership != nil {
-		html += "<div class=\"mt-3\">" +
-			"<h6>Membership Details</h6>" +
-			"<p><strong>Member since:</strong> " + membership.FirstMembership.Format("2006-01-02") + "</p>" +
-			"<p><strong>Current membership start:</strong> " + membership.StartMembership.Format("2006-01-02") + "</p>" +
-			"<p><strong>Monthly fee:</strong> " + fmt.Sprintf("%.2f NOK", float64(membership.Fee)/100) + "</p>"
+		html += "<section>" +
+			"<h3>Membership Details</h3>" +
+			"<p>Member since: " + membership.FirstMembership.Format("2006-01-02") + "</p>" +
+			"<p>Current membership start: " + membership.StartMembership.Format("2006-01-02") + "</p>" +
+			"<p>Monthly fee: " + fmt.Sprintf("%.2f NOK", float64(membership.Fee)/100) + "</p>"
 		if membership.MembershipNumber.Valid {
 			html += "<p><strong>Membership number:</strong> " + fmt.Sprintf("%d", membership.MembershipNumber.Int64) + "</p>"
 		}
-		html += "</div>"
+		html += "</section>"
 	}
 
 	html += "</div>" +
-		"</div>"
+		"</section>"
 
 	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
 }
@@ -848,264 +885,237 @@ func (h *Handler) GetActiveMembersDetailed(c *gin.Context) {
 
 // Profile shows the user profile page (requires authentication)
 func (h *Handler) Profile(c *gin.Context) {
-user := middleware.GetCurrentUser(c)
+	user := middleware.GetCurrentUser(c)
 
-html := `
+	html := `
 <!DOCTYPE html>
 <html>
 <head>
     <title>Profile - P2K16</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
-    <link href="/styles/p2k16-design-system.css" rel="stylesheet">
+    
 </head>
 <body>
-    <header class="p2k16-header">
-        <div class="p2k16-container p2k16-header__container">
-            <a href="/" class="p2k16-header__brand">P2K16</a>
-            <nav class="p2k16-header__nav">
-                <div class="p2k16-header__user">
-                    <span class="p2k16-text--secondary">Welcome, <strong>` + user.Username + `</strong></span>
-                    <a href="/logout" class="p2k16-button p2k16-button--secondary p2k16-button--sm">Logout</a>
-                </div>
-            </nav>
-        </div>
-    </header>
+	` + h.renderNavbarWithTrail(c, "Profile") + `
     
-    <main class="p2k16-container p2k16-container--narrow p2k16-mt-8">
-        <div class="p2k16-mb-8">
-            <h1>User Profile</h1>
-            <p class="p2k16-text--secondary">Manage your account settings and view your membership status</p>
-        </div>
+	<main>
+		<div>
+			<h1>Membership Card</h1>
+			<p>Front shows your info and badges. Click Edit to flip to the back and manage details.</p>
+		</div>
+		<section>
+			<div id="membership-card">` + h.renderProfileCardFrontHTML(user) + `</div>
+		</section>
 
-        <!-- Change Password Section -->
-        <div class="p2k16-card p2k16-mb-8">
-            <div class="p2k16-card__header">
-                <h5 class="p2k16-card__title">Change Password</h5>
-            </div>
-            <div class="p2k16-card__body">
-                <form class="p2k16-form" hx-post="/api/profile/change-password" hx-target="#password-result">
-                    <div class="p2k16-field">
-                        <label for="oldPassword" class="p2k16-field__label">Current Password</label>
-                        <input type="password" class="p2k16-field__input" id="oldPassword" name="oldPassword" required>
-                    </div>
-                    <div class="p2k16-field">
-                        <label for="newPassword" class="p2k16-field__label">New Password</label>
-                        <input type="password" class="p2k16-field__input" id="newPassword" name="newPassword" required>
-                    </div>
-                    <div class="p2k16-field">
-                        <label for="confirmPassword" class="p2k16-field__label">Confirm New Password</label>
-                        <input type="password" class="p2k16-field__input" id="confirmPassword" name="confirmPassword" required>
-                    </div>
-                    <button type="submit" class="p2k16-button p2k16-button--primary">Change Password</button>
-                </form>
-                <div id="password-result" class="p2k16-mt-6"></div>
-            </div>
-        </div>
 
-        <!-- Profile Details Section -->
-        <div class="p2k16-card p2k16-mb-8">
-            <div class="p2k16-card__header">
-                <h5 class="p2k16-card__title">Profile Details</h5>
-            </div>
-            <div class="p2k16-card__body">
-                <form class="p2k16-form" hx-post="/api/profile/update" hx-target="#profile-result">
-                    <div class="p2k16-field">
-                        <label for="name" class="p2k16-field__label">Full Name</label>
-                        <input type="text" class="p2k16-field__input" id="name" name="name" placeholder="Enter your full name">
-                        <div class="p2k16-field__help">This will be displayed on your public profile</div>
-                    </div>
-                    <div class="p2k16-field">
-                        <label for="email" class="p2k16-field__label">Email Address</label>
-                        <input type="email" class="p2k16-field__input" id="email" name="email" value="` + user.Account.Email + `" readonly>
-                        <div class="p2k16-field__help">Contact an administrator to change your email address</div>
-                    </div>
-                    <div class="p2k16-field">
-                        <label for="phone" class="p2k16-field__label">Phone Number</label>
-                        <input type="tel" class="p2k16-field__input" id="phone" name="phone" placeholder="Enter your phone number">
-                        <div class="p2k16-field__help">Used for emergency contact and door access notifications</div>
-                    </div>
-                    <button type="submit" class="p2k16-button p2k16-button--primary">Save Changes</button>
-                </form>
-                <div id="profile-result" class="p2k16-mt-6"></div>
-            </div>
-        </div>
-
-        <!-- Badges Section -->
-        <div class="p2k16-card p2k16-mb-8">
-            <div class="p2k16-card__header">
-                <h5 class="p2k16-card__title">Your Badges</h5>
-            </div>
-            <div class="p2k16-card__body">
-                <div id="profile-badges">
-                    <button class="p2k16-button p2k16-button--secondary" 
-                            hx-get="/api/user/badges" 
-                            hx-target="#profile-badges">Load Your Badges</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Navigation -->
-        <div class="p2k16-text--center">
-            <a href="/dashboard" class="p2k16-button p2k16-button--secondary">Back to Dashboard</a>
-            <a href="/" class="p2k16-button p2k16-button--secondary">Home</a>
-        </div>
     </main>
 </body>
 </html>`
 
-c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
+	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
 }
 
 // Admin shows the admin interface (requires authentication)
 func (h *Handler) Admin(c *gin.Context) {
-user := middleware.GetCurrentUser(c)
-
-html := `
+	html := `
 <!DOCTYPE html>
 <html>
 <head>
     <title>Admin - P2K16</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
-    <link href="/styles/p2k16-design-system.css" rel="stylesheet">
+	<script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    
 </head>
 <body>
-    <header class="p2k16-header">
-        <div class="p2k16-container p2k16-header__container">
-            <a href="/" class="p2k16-header__brand">P2K16</a>
-            <nav class="p2k16-header__nav">
-                <div class="p2k16-header__user">
-                    <span class="p2k16-text--secondary">Welcome, <strong>` + user.Username + `</strong></span>
-                    <a href="/logout" class="p2k16-button p2k16-button--secondary p2k16-button--sm">Logout</a>
-                </div>
-            </nav>
-        </div>
-    </header>
+	` + h.renderNavbarWithTrail(c, "Admin") + `
     
-    <main class="p2k16-container p2k16-mt-8">
-        <div class="p2k16-mb-8">
-            <h1>Administration</h1>
-            <p class="p2k16-text--secondary">Manage users, tools, badges, and system settings</p>
-        </div>
+	<main>
+		<div>
+			<h1>Admin Console</h1>
+			<p>Workspace for privileged tasks: manage users, tools, companies, circles, logs, and configuration.</p>
+		</div>
+		<section>
+			<nav aria-label="Admin sections">
+				<ul>
+					<li><a href="/admin/users">Users</a></li>
+					<li><a href="/admin/tools">Tools</a></li>
+					<li><a href="/admin/companies">Companies</a></li>
+					<li><a href="/admin/circles">Circles</a></li>
+					<li><a href="/admin/logs">Logs</a></li>
+					<li><a href="/admin/config">Config</a></li>
+				</ul>
+			</nav>
+		</section>
 
-        <div class="p2k16-grid p2k16-grid--3-col">
-            <!-- User Management -->
-            <div class="p2k16-card">
-                <div class="p2k16-card__header">
-                    <h5 class="p2k16-card__title">User Management</h5>
-                </div>
-                <div class="p2k16-card__body">
-                    <p class="p2k16-text--secondary p2k16-mb-6">Manage user accounts and permissions</p>
-                    <button class="p2k16-button p2k16-button--primary p2k16-button--full p2k16-mb-4" 
-                            hx-get="/api/admin/users" 
-                            hx-target="#admin-content">View All Users</button>
-                    <button class="p2k16-button p2k16-button--secondary p2k16-button--full" 
-                            hx-get="/api/admin/users/new" 
-                            hx-target="#admin-content">Create New User</button>
-                </div>
-            </div>
-
-            <!-- Badge Management -->
-            <div class="p2k16-card">
-                <div class="p2k16-card__header">
-                    <h5 class="p2k16-card__title">Badge System</h5>
-                </div>
-                <div class="p2k16-card__body">
-                    <p class="p2k16-text--secondary p2k16-mb-6">Manage badges and certifications</p>
-                    <button class="p2k16-button p2k16-button--success p2k16-button--full p2k16-mb-4" 
-                            hx-get="/api/admin/badges" 
-                            hx-target="#admin-content">Manage Badges</button>
-                    <button class="p2k16-button p2k16-button--secondary p2k16-button--full" 
-                            hx-get="/api/admin/badges/award" 
-                            hx-target="#admin-content">Award Badge</button>
-                </div>
-            </div>
-
-            <!-- Tool Management -->
-            <div class="p2k16-card">
-                <div class="p2k16-card__header">
-                    <h5 class="p2k16-card__title">Tool Management</h5>
-                </div>
-                <div class="p2k16-card__body">
-                    <p class="p2k16-text--secondary p2k16-mb-6">Manage tools and equipment</p>
-                    <button class="p2k16-button p2k16-button--warning p2k16-button--full p2k16-mb-4" 
-                            hx-get="/api/admin/tools" 
-                            hx-target="#admin-content">Manage Tools</button>
-                    <button class="p2k16-button p2k16-button--secondary p2k16-button--full" 
-                            hx-get="/api/admin/tools/new" 
-                            hx-target="#admin-content">Add New Tool</button>
-                </div>
-            </div>
-
-            <!-- Company Management -->
-            <div class="p2k16-card">
-                <div class="p2k16-card__header">
-                    <h5 class="p2k16-card__title">Companies</h5>
-                </div>
-                <div class="p2k16-card__body">
-                    <p class="p2k16-text--secondary p2k16-mb-6">Manage corporate memberships</p>
-                    <button class="p2k16-button p2k16-button--primary p2k16-button--full p2k16-mb-4" 
-                            hx-get="/api/admin/companies" 
-                            hx-target="#admin-content">View Companies</button>
-                    <button class="p2k16-button p2k16-button--secondary p2k16-button--full" 
-                            hx-get="/api/admin/companies/new" 
-                            hx-target="#admin-content">Add Company</button>
-                </div>
-            </div>
-
-            <!-- Circle Management -->
-            <div class="p2k16-card">
-                <div class="p2k16-card__header">
-                    <h5 class="p2k16-card__title">Circles</h5>
-                </div>
-                <div class="p2k16-card__body">
-                    <p class="p2k16-text--secondary p2k16-mb-6">Manage user groups and permissions</p>
-                    <button class="p2k16-button p2k16-button--primary p2k16-button--full p2k16-mb-4" 
-                            hx-get="/api/admin/circles" 
-                            hx-target="#admin-content">View Circles</button>
-                    <button class="p2k16-button p2k16-button--secondary p2k16-button--full" 
-                            hx-get="/api/admin/circles/new" 
-                            hx-target="#admin-content">Create Circle</button>
-                </div>
-            </div>
-
-            <!-- System Settings -->
-            <div class="p2k16-card">
-                <div class="p2k16-card__header">
-                    <h5 class="p2k16-card__title">System Settings</h5>
-                </div>
-                <div class="p2k16-card__body">
-                    <p class="p2k16-text--secondary p2k16-mb-6">Configure system parameters</p>
-                    <button class="p2k16-button p2k16-button--secondary p2k16-button--full p2k16-mb-4" 
-                            hx-get="/api/admin/settings" 
-                            hx-target="#admin-content">System Settings</button>
-                    <button class="p2k16-button p2k16-button--danger p2k16-button--full" 
-                            hx-get="/api/admin/logs" 
-                            hx-target="#admin-content">View Logs</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Dynamic Content Area -->
-        <div class="p2k16-mt-8">
-            <div id="admin-content">
-                <div class="p2k16-card">
-                    <div class="p2k16-card__body">
-                        <p class="p2k16-text--center p2k16-text--muted">Select an action from above to get started</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Navigation -->
-        <div class="p2k16-text--center p2k16-mt-8">
-            <a href="/dashboard" class="p2k16-button p2k16-button--secondary">Back to Dashboard</a>
-            <a href="/" class="p2k16-button p2k16-button--secondary">Home</a>
-        </div>
     </main>
 </body>
 </html>`
 
-c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
+	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
+}
+
+// Admin subpages — minimal pages to "paginate" admin options
+func (h *Handler) AdminUsers(c *gin.Context) {
+	html := `
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Admin / Users - P2K16</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<script src="https://unpkg.com/htmx.org@1.9.10"></script>
+</head>
+<body>
+	` + h.renderNavbarWithTrail(c, "Admin / Users") + `
+	<main>
+		<h1>Users</h1>
+		<p>Manage user accounts and permissions.</p>
+	</main>
+</body>
+</html>`
+	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
+}
+
+func (h *Handler) AdminTools(c *gin.Context) {
+	html := `
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Admin / Tools - P2K16</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<script src="https://unpkg.com/htmx.org@1.9.10"></script>
+</head>
+<body>
+	` + h.renderNavbarWithTrail(c, "Admin / Tools") + `
+	<main>
+		<h1>Tools</h1>
+		<p>Manage tools and equipment.</p>
+	</main>
+</body>
+</html>`
+	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
+}
+
+func (h *Handler) AdminCompanies(c *gin.Context) {
+	html := `
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Admin / Companies - P2K16</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<script src="https://unpkg.com/htmx.org@1.9.10"></script>
+</head>
+<body>
+	` + h.renderNavbarWithTrail(c, "Admin / Companies") + `
+	<main>
+		<h1>Companies</h1>
+		<p>Manage corporate memberships.</p>
+	</main>
+</body>
+</html>`
+	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
+}
+
+func (h *Handler) AdminCircles(c *gin.Context) {
+	html := `
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Admin / Circles - P2K16</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<script src="https://unpkg.com/htmx.org@1.9.10"></script>
+</head>
+<body>
+	` + h.renderNavbarWithTrail(c, "Admin / Circles") + `
+	<main>
+		<h1>Circles</h1>
+		<p>Manage user groups and permissions.</p>
+	</main>
+</body>
+</html>`
+	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
+}
+
+func (h *Handler) AdminLogs(c *gin.Context) {
+	html := `
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Admin / Logs - P2K16</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<script src="https://unpkg.com/htmx.org@1.9.10"></script>
+</head>
+<body>
+	` + h.renderNavbarWithTrail(c, "Admin / Logs") + `
+	<main>
+		<h1>Logs</h1>
+		<p>View system logs.</p>
+	</main>
+</body>
+</html>`
+	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
+}
+
+func (h *Handler) AdminConfig(c *gin.Context) {
+	html := `
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Admin / Config - P2K16</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<script src="https://unpkg.com/htmx.org@1.9.10"></script>
+</head>
+<body>
+	` + h.renderNavbarWithTrail(c, "Admin / Config") + `
+	<main>
+		<h1>Config</h1>
+		<p>Configure system parameters.</p>
+	</main>
+</body>
+</html>`
+	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
+}
+
+// BadgeCreatePage shows a dedicated page to create a new badge (requires authentication)
+func (h *Handler) BadgeCreatePage(c *gin.Context) {
+	html := `
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Create Badge - P2K16</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    
+</head>
+<body>
+	` + h.renderNavbarWithTrail(c, "Create Badge") + `
+    
+	<main>
+		<section aria-labelledby="create-badge-title">
+			<header>
+				<h1 id="create-badge-title">Create a New Badge</h1>
+			</header>
+			<div>
+				<form hx-post="/api/badges/create" hx-target="#create-result">
+					<div>
+						<label for="title">Title</label>
+						<input id="title" type="text" name="title" required>
+						<div>Choose a short, clear name (e.g., Laser Cutter Trained)</div>
+					</div>
+					<div>
+						<button type="submit">Create Badge</button>
+					</div>
+				</form>
+				<div id="create-result" aria-live="polite"></div>
+			</div>
+		</section>
+
+		<section>
+			<p>After creating, you can award it to yourself or others from the Admin Console.</p>
+		</section>
+	</main>
+</body>
+</html>`
+
+	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
 }
