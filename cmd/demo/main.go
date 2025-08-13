@@ -26,6 +26,103 @@ func main() {
 	})
 	r.Use(sessions.Sessions("p2k16_session", store))
 
+	// Logout route to demonstrate logout functionality
+	r.POST("/logout", func(c *gin.Context) {
+		session := sessions.Default(c)
+		session.Clear()
+		session.Save()
+		c.Redirect(302, "/")
+	})
+
+	// Demo authenticated page to show navigation with logout
+	r.GET("/demo-authenticated", func(c *gin.Context) {
+		html := `
+<!DOCTYPE html>
+<html>
+<head>
+	<title>P2K16</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<script src="https://unpkg.com/htmx.org@1.9.10"></script>
+	<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+	<nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+		<div class="container">
+			<a class="navbar-brand fw-bold" href="/">P2K16</a>
+			
+			<button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+				<span class="navbar-toggler-icon"></span>
+			</button>
+			
+			<div class="collapse navbar-collapse" id="navbarNav">
+				<ul class="navbar-nav me-auto">
+					<li class="nav-item">
+						<a class="nav-link" href="/">Home</a>
+					</li>
+					<li class="nav-item">
+						<a class="nav-link" href="#profile">Profile</a>
+					</li>
+					<li class="nav-item">
+						<a class="nav-link" href="/demo-admin">Admin</a>
+					</li>
+				</ul>
+				
+				<ul class="navbar-nav">
+					<li class="nav-item">
+						<span class="navbar-text me-3">Welcome, demo_user</span>
+					</li>
+					<li class="nav-item">
+						<form method="post" action="/logout" class="d-inline">
+							<button type="submit" class="btn btn-outline-light btn-sm">Logout</button>
+						</form>
+					</li>
+				</ul>
+			</div>
+		</div>
+	</nav>
+	
+	<main class="container mt-4">
+		<div class="text-center mb-4">
+			<h1>Welcome to P2K16</h1>
+			<p class="lead">Hackerspace Management System - Authenticated View</p>
+		</div>
+		
+		<div class="row">
+			<div class="col-md-8 offset-md-2">
+				<div class="alert alert-success" role="alert">
+					<h4 class="alert-heading">Successfully Logged In!</h4>
+					<p>This page demonstrates the improved navigation with functioning logout.</p>
+					<hr>
+					<p class="mb-0">
+						<a href="/" class="btn btn-outline-success me-2">Go to Login Page</a>
+						<a href="/demo-admin" class="btn btn-outline-primary">Admin Console</a>
+					</p>
+				</div>
+			</div>
+		</div>
+		
+		<div class="row mt-4">
+			<div class="col-md-8 offset-md-2">
+				<div class="card">
+					<div class="card-header">
+						<h5 class="card-title mb-0">System Status</h5>
+					</div>
+					<div class="card-body">
+						<div class="d-flex align-items-center">
+							<span class="badge bg-success me-2">Online</span>
+							<span>Database connected - all systems operational</span>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</main>
+	<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>`
+		c.Data(200, "text/html; charset=utf-8", []byte(html))
+	})
+
 	// Home page route
 	r.GET("/", func(c *gin.Context) {
 		html := `
@@ -38,14 +135,35 @@ func main() {
 	<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body>
-	<header class="navbar navbar-dark bg-dark">
+	<nav class="navbar navbar-expand-lg navbar-dark bg-primary">
 		<div class="container">
-			<a class="navbar-brand" href="/">P2K16</a>
-			<div class="navbar-nav ms-auto">
-				<a class="nav-link" href="/demo-admin">Admin Demo</a>
+			<a class="navbar-brand fw-bold" href="/">P2K16</a>
+			
+			<button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+				<span class="navbar-toggler-icon"></span>
+			</button>
+			
+			<div class="collapse navbar-collapse" id="navbarNav">
+				<ul class="navbar-nav me-auto">
+					<li class="nav-item">
+						<a class="nav-link" href="/">Home</a>
+					</li>
+					<li class="nav-item">
+						<a class="nav-link" href="#profile">Profile</a>
+					</li>
+					<li class="nav-item">
+						<a class="nav-link" href="/demo-admin">Admin</a>
+					</li>
+				</ul>
+				
+				<ul class="navbar-nav">
+					<li class="nav-item">
+						<a class="nav-link" href="#login">Login</a>
+					</li>
+				</ul>
 			</div>
 		</div>
-	</header>
+	</nav>
 	
 	<main class="container mt-4">
 		<div class="text-center mb-4">
@@ -112,14 +230,49 @@ func main() {
 	<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body>
-	<header class="navbar navbar-dark bg-dark">
+	<nav class="navbar navbar-expand-lg navbar-dark bg-primary">
 		<div class="container">
-			<a class="navbar-brand" href="/">P2K16</a>
-			<nav class="navbar-nav">
-				<span class="navbar-text">/ Admin</span>
-			</nav>
+			<a class="navbar-brand fw-bold" href="/">P2K16</a>
+			
+			<button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+				<span class="navbar-toggler-icon"></span>
+			</button>
+			
+			<div class="collapse navbar-collapse" id="navbarNav">
+				<ul class="navbar-nav me-auto">
+					<li class="nav-item">
+						<a class="nav-link" href="/">Home</a>
+					</li>
+					<li class="nav-item">
+						<a class="nav-link" href="#profile">Profile</a>
+					</li>
+					<li class="nav-item">
+						<a class="nav-link" href="/demo-admin">Admin</a>
+					</li>
+				</ul>
+				
+				<ul class="navbar-nav">
+					<li class="nav-item">
+						<span class="navbar-text me-3">Welcome, admin_user</span>
+					</li>
+					<li class="nav-item">
+						<form method="post" action="/logout" class="d-inline">
+							<button type="submit" class="btn btn-outline-light btn-sm">Logout</button>
+						</form>
+					</li>
+				</ul>
+			</div>
 		</div>
-	</header>
+	</nav>
+
+	<nav aria-label="breadcrumb" class="bg-light border-bottom">
+		<div class="container">
+			<ol class="breadcrumb py-2 mb-0">
+				<li class="breadcrumb-item"><a href="/">Home</a></li>
+				<li class="breadcrumb-item active" aria-current="page">Admin</li>
+			</ol>
+		</div>
+	</nav>
 	
 	<main class="container mt-4">
 		<div class="d-flex justify-content-between align-items-center mb-4">
@@ -201,14 +354,50 @@ func main() {
 	<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body>
-	<header class="navbar navbar-dark bg-dark">
+	<nav class="navbar navbar-expand-lg navbar-dark bg-primary">
 		<div class="container">
-			<a class="navbar-brand" href="/">P2K16</a>
-			<nav class="navbar-nav">
-				<span class="navbar-text">/ <a href="/demo-admin" class="text-light">Admin</a> / Users</span>
-			</nav>
+			<a class="navbar-brand fw-bold" href="/">P2K16</a>
+			
+			<button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+				<span class="navbar-toggler-icon"></span>
+			</button>
+			
+			<div class="collapse navbar-collapse" id="navbarNav">
+				<ul class="navbar-nav me-auto">
+					<li class="nav-item">
+						<a class="nav-link" href="/">Home</a>
+					</li>
+					<li class="nav-item">
+						<a class="nav-link" href="#profile">Profile</a>
+					</li>
+					<li class="nav-item">
+						<a class="nav-link" href="/demo-admin">Admin</a>
+					</li>
+				</ul>
+				
+				<ul class="navbar-nav">
+					<li class="nav-item">
+						<span class="navbar-text me-3">Welcome, admin_user</span>
+					</li>
+					<li class="nav-item">
+						<form method="post" action="/logout" class="d-inline">
+							<button type="submit" class="btn btn-outline-light btn-sm">Logout</button>
+						</form>
+					</li>
+				</ul>
+			</div>
 		</div>
-	</header>
+	</nav>
+
+	<nav aria-label="breadcrumb" class="bg-light border-bottom">
+		<div class="container">
+			<ol class="breadcrumb py-2 mb-0">
+				<li class="breadcrumb-item"><a href="/">Home</a></li>
+				<li class="breadcrumb-item"><a href="/demo-admin">Admin</a></li>
+				<li class="breadcrumb-item active" aria-current="page">Users</li>
+			</ol>
+		</div>
+	</nav>
 	
 	<main class="container mt-4">
 		<div class="d-flex justify-content-between align-items-center mb-4">
@@ -309,6 +498,7 @@ func main() {
 	port := "8080"
 	log.Printf("Starting demo server on port %s", port)
 	log.Printf("Visit http://localhost:%s for the home page", port)
+	log.Printf("Visit http://localhost:%s/demo-authenticated for the authenticated view with logout", port)
 	log.Printf("Visit http://localhost:%s/demo-admin for the admin interface", port)
 	log.Printf("Visit http://localhost:%s/demo-admin-users for the user management", port)
 

@@ -8,60 +8,166 @@ import (
 	"github.com/helloellinor/p2k16/internal/middleware"
 )
 
-// renderNavbar returns a minimal, classless navbar based on auth state
+// renderNavbar returns a Bootstrap navbar based on auth state
 func (h *Handler) renderNavbar(c *gin.Context) string {
 	user := middleware.GetCurrentUser(c)
-	html := `<header><div><a href="/">P2K16</a>`
+	
+	html := `
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+	<div class="container">
+		<a class="navbar-brand fw-bold" href="/">P2K16</a>
+		
+		<button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+			<span class="navbar-toggler-icon"></span>
+		</button>
+		
+		<div class="collapse navbar-collapse" id="navbarNav">
+			<ul class="navbar-nav me-auto">
+				<li class="nav-item">
+					<a class="nav-link" href="/">Home</a>
+				</li>`
+	
 	if user != nil {
-		html += `<form method="post" action="/logout" style="display:inline;margin-left:8px;"><button type="submit">Logout</button></form>`
+		html += `
+				<li class="nav-item">
+					<a class="nav-link" href="/profile">Profile</a>
+				</li>
+				<li class="nav-item">
+					<a class="nav-link" href="/admin">Admin</a>
+				</li>`
 	}
-	html += `</div></header>`
+	
+	html += `
+			</ul>
+			
+			<ul class="navbar-nav">
+				<li class="nav-item">`
+	
+	if user == nil {
+		html += `
+					<a class="nav-link" href="/login">Login</a>`
+	} else {
+		html += `
+					<span class="navbar-text me-3">Welcome, ` + user.Username + `</span>
+				</li>
+				<li class="nav-item">
+					<form method="post" action="/logout" class="d-inline">
+						<button type="submit" class="btn btn-outline-light btn-sm">Logout</button>
+					</form>`
+	}
+	
+	html += `
+				</li>
+			</ul>
+		</div>
+	</div>
+</nav>`
+	
 	return html
 }
 
-// renderNavbarWithTrail is like renderNavbar but appends an inline
-// breadcrumb trail (e.g., " / Profile") right after the brand.
+// renderNavbarWithTrail is like renderNavbar but includes breadcrumb navigation
 func (h *Handler) renderNavbarWithTrail(c *gin.Context, trail string) string {
 	user := middleware.GetCurrentUser(c)
-	html := `<header><div><a href="/">P2K16</a>`
+	
+	html := `
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+	<div class="container">
+		<a class="navbar-brand fw-bold" href="/">P2K16</a>
+		
+		<button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+			<span class="navbar-toggler-icon"></span>
+		</button>
+		
+		<div class="collapse navbar-collapse" id="navbarNav">
+			<ul class="navbar-nav me-auto">
+				<li class="nav-item">
+					<a class="nav-link" href="/">Home</a>
+				</li>`
+	
+	if user != nil {
+		html += `
+				<li class="nav-item">
+					<a class="nav-link" href="/profile">Profile</a>
+				</li>
+				<li class="nav-item">
+					<a class="nav-link" href="/admin">Admin</a>
+				</li>`
+	}
+	
+	html += `
+			</ul>
+			
+			<ul class="navbar-nav">
+				<li class="nav-item">`
+	
+	if user == nil {
+		html += `
+					<a class="nav-link" href="/login">Login</a>`
+	} else {
+		html += `
+					<span class="navbar-text me-3">Welcome, ` + user.Username + `</span>
+				</li>
+				<li class="nav-item">
+					<form method="post" action="/logout" class="d-inline">
+						<button type="submit" class="btn btn-outline-light btn-sm">Logout</button>
+					</form>`
+	}
+	
+	html += `
+				</li>
+			</ul>
+		</div>
+	</div>
+</nav>`
+
+	// Add breadcrumb if trail is provided
 	if trail != "" {
-		// If trail is 'Profile' or 'Admin', render as links
+		html += `
+<nav aria-label="breadcrumb" class="bg-light border-bottom">
+	<div class="container">
+		<ol class="breadcrumb py-2 mb-0">
+			<li class="breadcrumb-item"><a href="/">Home</a></li>`
+		
+		// Handle different trail types
 		switch trail {
 		case "Profile":
-			html += ` / <a href="/profile">Profile</a>`
+			html += `<li class="breadcrumb-item active" aria-current="page">Profile</li>`
 		case "Admin":
-			html += ` / <a href="/admin">Admin</a>`
+			html += `<li class="breadcrumb-item active" aria-current="page">Admin</li>`
 		default:
 			// For compound trails like 'Admin / Users', split and link first part if possible
 			if trail == "Admin / Users" {
-				html += ` / <a href="/admin">Admin</a> / <span>Users</span>`
+				html += `<li class="breadcrumb-item"><a href="/admin">Admin</a></li>
+						<li class="breadcrumb-item active" aria-current="page">Users</li>`
 			} else if trail == "Admin / Tools" {
-				html += ` / <a href="/admin">Admin</a> / <span>Tools</span>`
+				html += `<li class="breadcrumb-item"><a href="/admin">Admin</a></li>
+						<li class="breadcrumb-item active" aria-current="page">Tools</li>`
 			} else if trail == "Admin / Companies" {
-				html += ` / <a href="/admin">Admin</a> / <span>Companies</span>`
+				html += `<li class="breadcrumb-item"><a href="/admin">Admin</a></li>
+						<li class="breadcrumb-item active" aria-current="page">Companies</li>`
 			} else if trail == "Admin / Circles" {
-				html += ` / <a href="/admin">Admin</a> / <span>Circles</span>`
+				html += `<li class="breadcrumb-item"><a href="/admin">Admin</a></li>
+						<li class="breadcrumb-item active" aria-current="page">Circles</li>`
 			} else if trail == "Admin / Logs" {
-				html += ` / <a href="/admin">Admin</a> / <span>Logs</span>`
+				html += `<li class="breadcrumb-item"><a href="/admin">Admin</a></li>
+						<li class="breadcrumb-item active" aria-current="page">Logs</li>`
 			} else if trail == "Admin / Config" {
-				html += ` / <a href="/admin">Admin</a> / <span>Config</span>`
+				html += `<li class="breadcrumb-item"><a href="/admin">Admin</a></li>
+						<li class="breadcrumb-item active" aria-current="page">Config</li>`
 			} else if trail == "Create Badge" {
-				html += ` / <a href="/badges/new">Create Badge</a>`
+				html += `<li class="breadcrumb-item active" aria-current="page">Create Badge</li>`
 			} else {
-				html += ` / <span>` + trail + `</span>`
+				html += `<li class="breadcrumb-item active" aria-current="page">` + trail + `</li>`
 			}
 		}
+		
+		html += `
+		</ol>
+	</div>
+</nav>`
 	}
-	if user != nil {
-		html += `<form method="post" action="/logout" style="display:inline;margin-left:8px;"><button type="submit">Logout</button></form>`
-	}
-	html += `<nav>`
-	if user == nil {
-		html += `<a href="/login">Login</a>`
-	} else {
-		html += `<a href="/profile">Profile</a><a href="/admin">Admin</a>`
-	}
-	html += `</nav></div></header>`
+	
 	return html
 }
 

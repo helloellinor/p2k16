@@ -73,7 +73,7 @@ func main() {
 	// Public routes
 	r.GET("/", middleware.OptionalAuth(handler.GetAccountRepo()), handler.Home)
 	r.GET("/login", middleware.OptionalAuth(handler.GetAccountRepo()), handler.Login)
-	r.GET("/logout", handler.Logout)
+	r.POST("/logout", handler.Logout)
 
 	// Protected routes
 	protected := r.Group("/")

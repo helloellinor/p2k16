@@ -183,22 +183,27 @@ func (h *Handler) Profile(c *gin.Context) {
     <title>Profile - P2K16</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
-    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body>
 	` + h.renderNavbarWithTrail(c, "Profile") + `
     
-	<main>
-		<div>
-			<h1>Membership Card</h1>
-			<p>Front shows your info and badges. Click Edit to flip to the back and manage details.</p>
+	<main class="container mt-4">
+		<div class="row justify-content-center">
+			<div class="col-md-8">
+				<div class="text-center mb-4">
+					<h1>Membership Card</h1>
+					<p class="lead">Front shows your info and badges. Click Edit to flip to the back and manage details.</p>
+				</div>
+				<div class="card">
+					<div class="card-body">
+						<div id="membership-card">` + h.renderProfileCardFrontHTML(user) + `</div>
+					</div>
+				</div>
+			</div>
 		</div>
-		<section>
-			<div id="membership-card">` + h.renderProfileCardFrontHTML(user) + `</div>
-		</section>
-
-
     </main>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>`
 
