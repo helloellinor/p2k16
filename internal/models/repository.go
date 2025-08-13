@@ -302,6 +302,43 @@ func (r *BadgeRepository) DeleteAccountBadge(accountBadgeID int, accountID int) 
 	return nil
 }
 
+// GetAll retrieves all badge descriptions (alias for GetAllDescriptions)
+func (r *BadgeRepository) GetAll() ([]BadgeDescription, error) {
+	return r.GetAllDescriptions()
+}
+
+// GetUserBadges retrieves all badges for a specific user
+func (r *BadgeRepository) GetUserBadges(accountID int) ([]BadgeDescription, error) {
+	query := `
+		SELECT bd.id, bd.title, bd.description, bd.certification_circle, bd.slug, bd.icon, bd.color,
+		       bd.created_at, bd.updated_at, bd.created_by, bd.updated_by
+		FROM badge_description bd
+		JOIN account_badge ab ON bd.id = ab.badge_description
+		WHERE ab.account = $1
+		ORDER BY bd.title`
+
+	rows, err := r.db.Query(query, accountID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var badges []BadgeDescription
+	for rows.Next() {
+		var badge BadgeDescription
+		err := rows.Scan(
+			&badge.ID, &badge.Title, &badge.Description, &badge.CertificationCircleID, &badge.Slug,
+			&badge.Icon, &badge.Color, &badge.CreatedAt, &badge.UpdatedAt, &badge.CreatedBy, &badge.UpdatedBy,
+		)
+		if err != nil {
+			return nil, err
+		}
+		badges = append(badges, badge)
+	}
+
+	return badges, nil
+}
+
 // ToolRepository handles database operations for tools
 type ToolRepository struct {
 	db *sql.DB
@@ -480,6 +517,37 @@ func (r *ToolRepository) GetActiveCheckouts() ([]ToolCheckout, error) {
 	}
 
 	return checkouts, nil
+}
+
+// GetCheckoutByID retrieves a specific checkout by ID
+func (r *ToolRepository) GetCheckoutByID(checkoutID int) (*ToolCheckout, error) {
+	query := `
+		SELECT tc.id, tc.tool, tc.account, tc.checkout_at, tc.checkin_at,
+		       tc.created_at, tc.updated_at, tc.created_by, tc.updated_by,
+		       td.name, td.description,
+		       a.username, a.name
+		FROM tool_checkout tc
+		JOIN tool_description td ON tc.tool = td.id
+		JOIN account a ON tc.account = a.id
+		WHERE tc.id = $1`
+
+	var checkout ToolCheckout
+	var tool ToolDescription
+	var account Account
+	
+	err := r.db.QueryRow(query, checkoutID).Scan(
+		&checkout.ID, &checkout.ToolID, &checkout.AccountID, &checkout.CheckoutAt, &checkout.CheckinAt,
+		&checkout.CreatedAt, &checkout.UpdatedAt, &checkout.CreatedBy, &checkout.UpdatedBy,
+		&tool.Name, &tool.Description,
+		&account.Username, &account.Name,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	checkout.Tool = &tool
+	checkout.Account = &account
+	return &checkout, nil
 }
 
 // CreateTool creates a new tool description
@@ -719,6 +787,11 @@ func (r *MembershipRepository) GetActivePayingMembers() ([]Account, error) {
 	}
 
 	return accounts, nil
+}
+
+// GetActiveMembers retrieves all active members (alias for GetActivePayingMembers)
+func (r *MembershipRepository) GetActiveMembers() ([]Account, error) {
+	return r.GetActivePayingMembers()
 }
 
 // GetActiveCompanies retrieves all active companies
@@ -964,6 +1037,41 @@ func (r *AccountRepository) UpdatePassword(accountID int, hashedPassword string)
 	query := `UPDATE account SET password = $1, updated_at = now() WHERE id = $2`
 	_, err := r.db.Exec(query, hashedPassword, accountID)
 	return err
+}
+
+// UpdateEmail updates the email for an account
+func (r *AccountRepository) UpdateEmail(accountID int, email string) error {
+	query := `UPDATE account SET email = $1, updated_at = now() WHERE id = $2`
+	_, err := r.db.Exec(query, email, accountID)
+	return err
+}
+
+// GetAll retrieves all accounts
+func (r *AccountRepository) GetAll() ([]Account, error) {
+	query := `
+		SELECT id, username, email, phone, name, password, created_at, updated_at, created_by, updated_by
+		FROM account ORDER BY username`
+
+	rows, err := r.db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var accounts []Account
+	for rows.Next() {
+		var account Account
+		err := rows.Scan(
+			&account.ID, &account.Username, &account.Email, &account.Phone, &account.Name,
+			&account.Password, &account.CreatedAt, &account.UpdatedAt, &account.CreatedBy, &account.UpdatedBy,
+		)
+		if err != nil {
+			return nil, err
+		}
+		accounts = append(accounts, account)
+	}
+
+	return accounts, nil
 }
 
 // UpdateProfile updates the profile fields for an account
