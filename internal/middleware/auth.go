@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
@@ -9,9 +10,12 @@ import (
 )
 
 const (
-	UserIDKey   = "user_id"
-	UsernameKey = "username"
-	SessionName = "p2k16-session"
+	UserIDKey        = "user_id"
+	UsernameKey      = "username"
+	SessionName      = "p2k16-session"
+	LastActivityKey  = "last_activity"
+	SessionCreatedKey = "session_created"
+	SessionTimeout   = 24 * time.Hour // 24 hours
 )
 
 // AuthenticatedUser represents the currently logged-in user
@@ -19,6 +23,58 @@ type AuthenticatedUser struct {
 	ID       int             `json:"id"`
 	Username string          `json:"username"`
 	Account  *models.Account `json:"account,omitempty"`
+}
+
+// SessionValidationMiddleware validates session and updates activity
+func SessionValidationMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		session := sessions.Default(c)
+		userID := session.Get(UserIDKey)
+		
+		if userID != nil {
+			// Check session expiration
+			lastActivity := session.Get(LastActivityKey)
+			if lastActivity != nil {
+				var lastTime time.Time
+				
+				// Handle different time formats
+				switch v := lastActivity.(type) {
+				case time.Time:
+					lastTime = v
+				case string:
+					if t, err := time.Parse(time.RFC3339, v); err == nil {
+						lastTime = t
+					} else {
+						// Invalid time format, treat as expired
+						session.Clear()
+						session.Save()
+						c.Next()
+						return
+					}
+				default:
+					// Unknown format, treat as expired
+					session.Clear()
+					session.Save()
+					c.Next()
+					return
+				}
+				
+				// Check if session is expired
+				if time.Since(lastTime) > SessionTimeout {
+					session.Clear()
+					session.Save()
+					c.Next()
+					return
+				}
+			}
+			
+			// Update last activity
+			session.Set(LastActivityKey, time.Now().Format(time.RFC3339))
+			session.Save()
+		}
+		
+		c.Next()
+	}
 }
 
 // RequireAuth middleware that requires authentication
@@ -147,8 +203,13 @@ func IsAuthenticated(c *gin.Context) bool {
 // LoginUser logs in a user by setting session variables
 func LoginUser(c *gin.Context, account *models.Account) error {
 	session := sessions.Default(c)
+	now := time.Now()
+	
 	session.Set(UserIDKey, account.ID)
 	session.Set(UsernameKey, account.Username)
+	session.Set(LastActivityKey, now.Format(time.RFC3339))
+	session.Set(SessionCreatedKey, now.Format(time.RFC3339))
+	
 	return session.Save()
 }
 

@@ -1,27 +1,35 @@
 package middleware
 
 import (
-	"fmt"
 	"log"
-	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/helloellinor/p2k16/internal/logging"
 )
 
-// Logger middleware for request logging
+// Logger middleware for enhanced request logging
 func Logger() gin.HandlerFunc {
-	return gin.LoggerWithFormatter(func(param gin.LogFormatterParams) string {
-		return fmt.Sprintf("%s - [%s] \"%s %s %s %d %s \"%s\" %s\"\n",
-			param.ClientIP,
-			param.TimeStamp.Format(time.RFC1123),
-			param.Method,
-			param.Path,
-			param.Request.Proto,
-			param.StatusCode,
-			param.Latency,
-			param.Request.UserAgent(),
-			param.ErrorMessage,
-		)
+	return gin.LoggerWithConfig(gin.LoggerConfig{
+		Formatter: func(param gin.LogFormatterParams) string {
+			// Use our enhanced logger for HTTP requests
+			logger := logging.ServerLogger
+			if gin.Mode() == gin.DebugMode {
+				logger = logging.DemoLogger
+			}
+			
+			// Log the request using our enhanced logger
+			logger.LogRequest(
+				param.Method,
+				param.Path,
+				param.ClientIP,
+				param.StatusCode,
+				param.Latency,
+			)
+			
+			// Return empty string since we handle the output ourselves
+			return ""
+		},
+		Output: nil, // We handle output ourselves
 	})
 }
 
