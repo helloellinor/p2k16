@@ -213,23 +213,23 @@ app.register_blueprint(api_blueprint.api)
 
 _env = app.config.get("P2K16_ENV", None)
 
-if _env == "local":
-    for registry in [badge_blueprint.registry, core_blueprint.registry, door_blueprint.registry]:
-        with open(os.path.join(app.static_folder, registry.jsName), "w") as f:
-            # print("app.static_folder={}".format(app.static_folder))
-            f.write(registry.generate())
+# Always generate service files to prevent 404 errors
+for registry in [badge_blueprint.registry, core_blueprint.registry, door_blueprint.registry, tool_blueprint.registry, label_blueprint.registry]:
+    with open(os.path.join(app.static_folder, registry.jsName), "w") as f:
+        # print("app.static_folder={}".format(app.static_folder))
+        f.write(registry.generate())
 
-    with app.test_request_context():
-        static = os.path.normpath(app.static_folder)
+with app.test_request_context():
+    static = os.path.normpath(app.static_folder)
 
-        resource_hash_type = flask.current_app.config.get("RESOURCE_HASH_TYPE", None)
+    resource_hash_type = flask.current_app.config.get("RESOURCE_HASH_TYPE", None)
 
-        try:
-            flask.current_app.config["RESOURCE_HASH_TYPE"] = None
-            with open(os.path.join(app.static_folder, "{}/p2k16_resources.js".format(static)), "w") as f:
-                utils.ResourcesTool.run(static, f)
-        finally:
-            flask.current_app.config["RESOURCE_HASH_TYPE"] = resource_hash_type
+    try:
+        flask.current_app.config["RESOURCE_HASH_TYPE"] = None
+        with open(os.path.join(app.static_folder, "p2k16_resources.js"), "w") as f:
+            utils.ResourcesTool.run(static, f)
+    finally:
+        flask.current_app.config["RESOURCE_HASH_TYPE"] = resource_hash_type
 
 flask_bower.Bower(app)
 
