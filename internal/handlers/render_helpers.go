@@ -11,7 +11,7 @@ import (
 // renderNavbar returns a Bootstrap navbar based on auth state
 func (h *Handler) renderNavbar(c *gin.Context) string {
 	user := middleware.GetCurrentUser(c)
-	
+
 	html := `
 <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
 	<div class="container">
@@ -26,7 +26,7 @@ func (h *Handler) renderNavbar(c *gin.Context) string {
 				<li class="nav-item">
 					<a class="nav-link" href="/">Home</a>
 				</li>`
-	
+
 	if user != nil {
 		html += `
 				<li class="nav-item">
@@ -36,13 +36,13 @@ func (h *Handler) renderNavbar(c *gin.Context) string {
 					<a class="nav-link" href="/admin">Admin</a>
 				</li>`
 	}
-	
+
 	html += `
 			</ul>
 			
 			<ul class="navbar-nav">
 				<li class="nav-item">`
-	
+
 	if user == nil {
 		html += `
 					<a class="nav-link" href="/login">Login</a>`
@@ -55,21 +55,21 @@ func (h *Handler) renderNavbar(c *gin.Context) string {
 						<button type="submit" class="btn btn-outline-light btn-sm">Logout</button>
 					</form>`
 	}
-	
+
 	html += `
 				</li>
 			</ul>
 		</div>
 	</div>
 </nav>`
-	
+
 	return html
 }
 
 // renderNavbarWithTrail is like renderNavbar but includes breadcrumb navigation
 func (h *Handler) renderNavbarWithTrail(c *gin.Context, trail string) string {
 	user := middleware.GetCurrentUser(c)
-	
+
 	html := `
 <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
 	<div class="container">
@@ -84,7 +84,7 @@ func (h *Handler) renderNavbarWithTrail(c *gin.Context, trail string) string {
 				<li class="nav-item">
 					<a class="nav-link" href="/">Home</a>
 				</li>`
-	
+
 	if user != nil {
 		html += `
 				<li class="nav-item">
@@ -94,13 +94,13 @@ func (h *Handler) renderNavbarWithTrail(c *gin.Context, trail string) string {
 					<a class="nav-link" href="/admin">Admin</a>
 				</li>`
 	}
-	
+
 	html += `
 			</ul>
 			
 			<ul class="navbar-nav">
 				<li class="nav-item">`
-	
+
 	if user == nil {
 		html += `
 					<a class="nav-link" href="/login">Login</a>`
@@ -113,7 +113,7 @@ func (h *Handler) renderNavbarWithTrail(c *gin.Context, trail string) string {
 						<button type="submit" class="btn btn-outline-light btn-sm">Logout</button>
 					</form>`
 	}
-	
+
 	html += `
 				</li>
 			</ul>
@@ -128,7 +128,7 @@ func (h *Handler) renderNavbarWithTrail(c *gin.Context, trail string) string {
 	<div class="container">
 		<ol class="breadcrumb py-2 mb-0">
 			<li class="breadcrumb-item"><a href="/">Home</a></li>`
-		
+
 		// Handle different trail types
 		switch trail {
 		case "Profile":
@@ -161,13 +161,13 @@ func (h *Handler) renderNavbarWithTrail(c *gin.Context, trail string) string {
 				html += `<li class="breadcrumb-item active" aria-current="page">` + trail + `</li>`
 			}
 		}
-		
+
 		html += `
 		</ol>
 	</div>
 </nav>`
 	}
-	
+
 	return html
 }
 
@@ -275,7 +275,7 @@ func (h *Handler) renderProfileCardBackHTML(user *middleware.AuthenticatedUser) 
 	</div>
 </section>`
 
-	// Profile details form  
+	// Profile details form
 	details := `
 <section>
 	<header><h2>Profile Details</h2></header>

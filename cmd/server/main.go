@@ -82,7 +82,7 @@ func main() {
 		protected.GET("/dashboard", handler.Dashboard)
 		protected.GET("/profile", handler.Profile)
 		protected.GET("/admin", handler.Admin)
-		
+
 		// Admin routes
 		protected.GET("/admin/users", handler.AdminUsers)
 		protected.GET("/admin/tools", handler.AdminTools)
@@ -90,12 +90,11 @@ func main() {
 		protected.GET("/admin/circles", handler.AdminCircles)
 		protected.GET("/admin/logs", handler.AdminLogs)
 		protected.GET("/admin/config", handler.AdminConfig)
-		
+
 		// Profile management endpoints
 		protected.POST("/profile/change-password", handler.ChangePassword)
 		protected.POST("/profile/update", handler.UpdateProfile)
-		protected.GET("/profile/card/front", handler.ProfileCardFront)
-		protected.GET("/profile/card/back", handler.ProfileCardBack)
+		// Remove these from protected, add to /api group below
 	}
 
 	// API routes
@@ -129,6 +128,10 @@ func main() {
 			apiProtected.GET("/tools/checkouts", handler.GetActiveCheckouts)
 			apiProtected.POST("/tools/checkout", handler.CheckoutTool)
 			apiProtected.POST("/tools/checkin", handler.CheckinTool)
+
+			// Profile card flip endpoints for HTMX
+			apiProtected.GET("/profile/card/front", handler.ProfileCardFront)
+			apiProtected.GET("/profile/card/back", handler.ProfileCardBack)
 		}
 	}
 
