@@ -263,6 +263,45 @@ func (r *BadgeRepository) FindBadgeDescriptionByTitle(title string) (*BadgeDescr
 	return &desc, nil
 }
 
+// AccountHasBadge checks if an account has a specific badge
+func (r *BadgeRepository) AccountHasBadge(accountID int, badgeDescriptionID int) (bool, error) {
+	query := `
+		SELECT COUNT(*) > 0 
+		FROM account_badge 
+		WHERE account = $1 AND badge_description = $2`
+	
+	var has bool
+	err := r.db.QueryRow(query, accountID, badgeDescriptionID).Scan(&has)
+	if err != nil {
+		return false, err
+	}
+	
+	return has, nil
+}
+
+// DeleteAccountBadge removes a badge from an account
+func (r *BadgeRepository) DeleteAccountBadge(accountBadgeID int, accountID int) error {
+	query := `
+		DELETE FROM account_badge 
+		WHERE id = $1 AND account = $2`
+	
+	result, err := r.db.Exec(query, accountBadgeID, accountID)
+	if err != nil {
+		return err
+	}
+	
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	
+	if rowsAffected == 0 {
+		return fmt.Errorf("no badge found with id %d for account %d", accountBadgeID, accountID)
+	}
+	
+	return nil
+}
+
 // ToolRepository handles database operations for tools
 type ToolRepository struct {
 	db *sql.DB

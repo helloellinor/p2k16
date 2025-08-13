@@ -818,7 +818,38 @@ func (h *Handler) GetMembershipStatus(c *gin.Context) {
 	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
 }
 
-// GetActiveMembers returns a list of active members
+// Dashboard redirects to the profile page for authenticated users
+func (h *Handler) Dashboard(c *gin.Context) {
+	logging.LogHandlerAction("PAGE REQUEST", "Dashboard page requested - redirecting to profile")
+	c.Redirect(http.StatusFound, "/profile")
+}
+
+// GetActiveMembers returns a simple list of active members (API endpoint)
+func (h *Handler) GetActiveMembers(c *gin.Context) {
+	payingMembers, err := h.membershipRepo.GetActivePayingMembers()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load active members"})
+		return
+	}
+
+	// Return simple JSON response
+	var members []map[string]interface{}
+	for _, member := range payingMembers {
+		displayName := member.Username
+		if member.Name.Valid && member.Name.String != "" {
+			displayName = member.Name.String
+		}
+		members = append(members, map[string]interface{}{
+			"id":       member.ID,
+			"username": member.Username,
+			"name":     displayName,
+		})
+	}
+
+	c.JSON(http.StatusOK, gin.H{"members": members})
+}
+
+// GetActiveMembersDetailed returns a list of active members
 func (h *Handler) GetActiveMembersDetailed(c *gin.Context) {
 	payingMembers, err := h.membershipRepo.GetActivePayingMembers()
 	if err != nil {
