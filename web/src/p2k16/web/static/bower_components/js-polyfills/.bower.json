@@ -1,0 +1,36 @@
+{
+  "name": "js-polyfills",
+  "version": "0.1.43",
+  "homepage": "https://github.com/inexorabletash/polyfill",
+  "authors": [
+    "Joshua Bell <inexorabletash@gmail.com>"
+  ],
+  "description": "Various Web API and ECMAScript Polyfills",
+  "license": "Unlicense",
+  "main": [
+    "polyfill.js"
+  ],
+  "keywords": [
+    "polyfill",
+    "standards"
+  ],
+  "ignore": [
+    "**/.*",
+    "**/*.html",
+    "**/*.json",
+    "**/*.md",
+    "demos",
+    "experimental",
+    "obsolete",
+    "tests"
+  ],
+  "_release": "0.1.43",
+  "_resolution": {
+    "type": "version",
+    "tag": "v0.1.43",
+    "commit": "8de025d0ac4d523a58d3527ee071b031d6d6be5d"
+  },
+  "_source": "https://github.com/inexorabletash/polyfill.git",
+  "_target": "^0.1.42",
+  "_originalSource": "js-polyfills"
+}

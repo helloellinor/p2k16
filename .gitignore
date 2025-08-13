@@ -1,6 +1,8 @@
 env*
 *.pyc
 bower_components
+# Allow bower_components in the web static directory for local hosting
+!web/src/p2k16/web/static/bower_components
 .idea
 
 bin/.*
@@ -34,3 +36,5 @@ p2k16-demo
 
 # Go specific temporary files
 vendor/
+# Allow vendor in the web static directory for local hosting  
+!web/src/p2k16/web/static/vendor
