@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"os"
 	"strconv"
@@ -11,7 +10,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/helloellinor/p2k16/internal/database"
 	"github.com/helloellinor/p2k16/internal/handlers"
-	"github.com/helloellinor/p2k16/internal/logging"
 	"github.com/helloellinor/p2k16/internal/middleware"
 	"github.com/helloellinor/p2k16/internal/models"
 )
@@ -31,22 +29,18 @@ func main() {
 	db, err := database.NewConnection(dbConfig)
 	var handler *handlers.Handler
 	var demoMode bool
-	var logger *logging.Logger
 	
 	if err != nil {
-		// Database connection failed - use demo mode
-		logger = logging.DemoLogger
-		logger.LogDatabaseFallback(err)
+		log.Printf("Database connection failed: %v", err)
+		log.Printf("Starting in DEMO MODE - no database required")
+		log.Printf("Use 'demo' with any password, 'super/super', or 'foo/foo' to login")
 		
 		// Initialize demo handlers with nil repositories
 		handler = handlers.NewHandler(nil, nil, nil, nil, nil, nil)
 		demoMode = true
 	} else {
-		// Database connection successful - use production mode
-		logger = logging.ServerLogger
+		log.Printf("Database connection successful")
 		defer db.Close()
-
-		logging.LogSuccess("DATABASE CONNECTION", fmt.Sprintf("Connected to: %s@%s:%d/%s", dbConfig.User, dbConfig.Host, dbConfig.Port, dbConfig.DBName))
 
 		// Initialize repositories
 		accountRepo := models.NewAccountRepository(db.DB)
@@ -72,9 +66,6 @@ func main() {
 	// Serve static files
 	r.Static("/styles", "./styles")
 
-	// Load templates
-	r.LoadHTMLGlob("cmd/server/templates/*.html")
-
 	// Session middleware
 	sessionSecret := getEnv("SESSION_SECRET", "p2k16-secret-key-change-in-production")
 	store := cookie.NewStore([]byte(sessionSecret))
@@ -85,9 +76,6 @@ func main() {
 		Secure:   false, // Set to true in production with HTTPS
 	})
 	r.Use(sessions.Sessions(middleware.SessionName, store))
-	
-	// Session validation middleware
-	r.Use(middleware.SessionValidationMiddleware())
 
 	// Public routes
 	r.GET("/", middleware.OptionalAuth(handler.GetAccountRepo()), handler.Home)
@@ -127,10 +115,6 @@ func main() {
 			// Membership routes
 			apiProtected.GET("/membership/status", handler.GetMembershipStatus)
 			apiProtected.GET("/membership/active", handler.GetActiveMembersDetailed)
-			
-			// Profile management routes (Phase 2)
-			apiProtected.POST("/profile/change-password", handler.ChangePassword)
-			apiProtected.POST("/profile/update", handler.UpdateProfile)
 		}
 	}
 
@@ -139,22 +123,10 @@ func main() {
 
 	// Start server
 	port := getEnv("PORT", "8080")
-	
-	// Log startup with enhanced formatting
-	features := []string{
-		"User authentication",
-		"Dashboard with badges",
-		"Profile management (password change, profile update)",
-		"Member listing",
-		"Badge system",
-		"Tool management",
-		"Session management with expiration",
-	}
-	
-	logger.LogStartup("production", port, features)
+	log.Printf("Starting server on port %s", port)
+	log.Printf("Application will be available at http://localhost:%s", port)
 
 	if err := r.Run(":" + port); err != nil {
-		logging.LogError("SERVER STARTUP", fmt.Sprintf("Failed to start server: %v", err))
 		log.Fatalf("Failed to start server: %v", err)
 	}
 }

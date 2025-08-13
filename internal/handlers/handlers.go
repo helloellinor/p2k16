@@ -6,7 +6,6 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"github.com/helloellinor/p2k16/internal/logging"
 	"github.com/helloellinor/p2k16/internal/middleware"
 	"github.com/helloellinor/p2k16/internal/models"
 )
@@ -45,32 +44,97 @@ func (h *Handler) GetAccountRepo() *models.AccountRepository {
 
 // Home renders the front page
 func (h *Handler) Home(c *gin.Context) {
-	logging.LogHandlerAction("PAGE REQUEST", "Home page visited")
 	user := middleware.GetCurrentUser(c)
+	userInfo := ""
 
-	var userInfo interface{}
 	if user != nil {
-		logging.LogHandlerAction("USER STATUS", fmt.Sprintf("Authenticated user: %s", user.Username))
-		userInfo = map[string]interface{}{
-			"Username": user.Username,
-		}
-	} else {
-		logging.LogHandlerAction("USER STATUS", "Anonymous user")
+		userInfo = `
+			<div class="p2k16-header__user">
+				<span class="p2k16-text--secondary">Welcome, <strong>` + user.Username + `</strong></span>
+				<a href="/logout" class="p2k16-button p2k16-button--secondary p2k16-button--sm">Logout</a>
+			</div>`
 	}
 
-	c.HTML(http.StatusOK, "base.html", gin.H{
-		"title":    "Home",
-		"user":     userInfo,
-		"demoMode": h.demoMode,
-		"content": gin.H{
-			"template": "home",
-			"data": gin.H{
-				"user":       userInfo,
-				"demoMode":   h.demoMode,
-				"isLoggedIn": user != nil,
-			},
-		},
-	})
+	html := `
+<!DOCTYPE html>
+<html>
+<head>
+    <title>P2K16 - Hackerspace Management System</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <link href="/styles/p2k16-design-system.css" rel="stylesheet">
+</head>
+<body>
+    <header class="p2k16-header">
+        <div class="p2k16-container p2k16-header__container">
+            <a href="/" class="p2k16-header__brand">P2K16</a>
+            <nav class="p2k16-header__nav">` + userInfo + `</nav>
+        </div>
+    </header>
+    
+    <main class="p2k16-container p2k16-mt-8">
+        <div class="p2k16-text--center p2k16-mb-8">
+            <h1>Welcome to P2K16</h1>
+            <p class="p2k16-text--secondary">Hackerspace Management System</p>
+        </div>
+        
+        <div class="p2k16-grid p2k16-grid--2-col">
+            <div class="p2k16-card">
+                <div class="p2k16-card__header">
+                    <h5 class="p2k16-card__title">Quick Actions</h5>
+                </div>
+                <div class="p2k16-card__body">`
+
+	if user == nil {
+		html += `
+                        <a href="/login" class="p2k16-button p2k16-button--primary">Login</a>`
+	} else {
+		html += `
+                        <a href="/dashboard" class="p2k16-button p2k16-button--primary">Dashboard</a>
+                        <a href="/profile" class="p2k16-button p2k16-button--secondary p2k16-mt-4">Profile</a>`
+	}
+
+	html += `
+                        <button class="p2k16-button p2k16-button--secondary p2k16-mt-4" 
+                                hx-get="/api/members/active" 
+                                hx-target="#member-list">Show Active Members</button>
+                    </div>
+                </div>
+            </div>
+            <div class="p2k16-card">
+                <div class="p2k16-card__header">
+                    <h5 class="p2k16-card__title">System Status</h5>
+                </div>
+                <div class="p2k16-card__body">`
+
+	if h.demoMode {
+		html += `
+                        <div class="p2k16-badge p2k16-badge--warning">Demo Mode</div>
+                        <p class="p2k16-mt-4">Running without database connection</p>
+                        <small class="p2k16-text--muted">Use "demo" with any password, "super/super", or "foo/foo" to login</small>`
+	} else {
+		html += `
+                        <div class="p2k16-badge p2k16-badge--success">Online</div>
+                        <p class="p2k16-mt-4">Database connected - all systems operational</p>`
+	}
+
+	html += `
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="p2k16-mt-8">
+            <h4>Active Members</h4>
+            <div id="member-list" class="p2k16-mt-4">
+                <p class="p2k16-text--muted">Click "Show Active Members" to load...</p>
+            </div>
+        </div>
+    </main>
+</body>
+</html>`
+
+	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
 }
 
 // Login handles user authentication
