@@ -961,7 +961,7 @@ func (r *DoorRepository) GetRecentDoorAccess(limit int) ([]DoorAccess, error) {
 
 // UpdatePassword updates the password for an account
 func (r *AccountRepository) UpdatePassword(accountID int, hashedPassword string) error {
-	query := `UPDATE accounts SET password = $1, updated_at = now() WHERE id = $2`
+	query := `UPDATE account SET password = $1, updated_at = now() WHERE id = $2`
 	_, err := r.db.Exec(query, hashedPassword, accountID)
 	return err
 }
@@ -969,7 +969,7 @@ func (r *AccountRepository) UpdatePassword(accountID int, hashedPassword string)
 // UpdateProfile updates the profile fields for an account
 func (r *AccountRepository) UpdateProfile(account *Account) error {
 	query := `
-		UPDATE accounts 
+		UPDATE account 
 		SET name = $1, phone = $2, updated_at = now() 
 		WHERE id = $3`
 
@@ -983,4 +983,44 @@ func (r *AccountRepository) UpdateProfile(account *Account) error {
 
 	_, err := r.db.Exec(query, name, phone, account.ID)
 	return err
+}
+
+// GetAllAccounts retrieves all accounts with pagination
+func (r *AccountRepository) GetAllAccounts(limit, offset int) ([]Account, error) {
+	query := `
+		SELECT id, username, email, password, name, phone, reset_token, 
+		       reset_token_validity, system, created_at, updated_at, created_by, updated_by
+		FROM account 
+		ORDER BY username
+		LIMIT $1 OFFSET $2`
+
+	rows, err := r.db.Query(query, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var accounts []Account
+	for rows.Next() {
+		var account Account
+		err := rows.Scan(
+			&account.ID, &account.Username, &account.Email, &account.Password,
+			&account.Name, &account.Phone, &account.ResetToken, &account.ResetTokenValidity,
+			&account.System, &account.CreatedAt, &account.UpdatedAt, &account.CreatedBy, &account.UpdatedBy,
+		)
+		if err != nil {
+			return nil, err
+		}
+		accounts = append(accounts, account)
+	}
+
+	return accounts, nil
+}
+
+// GetAccountCount returns the total number of accounts
+func (r *AccountRepository) GetAccountCount() (int, error) {
+	query := `SELECT COUNT(*) FROM account`
+	var count int
+	err := r.db.QueryRow(query).Scan(&count)
+	return count, err
 }

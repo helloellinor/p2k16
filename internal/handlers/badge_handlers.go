@@ -8,6 +8,58 @@ import (
 	"github.com/helloellinor/p2k16/internal/middleware"
 )
 
+// BadgeResponse represents the public badge information for API responses
+type BadgeResponse struct {
+	ID          int    `json:"id"`
+	Title       string `json:"title"`
+	Description string `json:"description,omitempty"`
+	Slug        string `json:"slug,omitempty"`
+	Icon        string `json:"icon,omitempty"`
+	Color       string `json:"color,omitempty"`
+}
+
+// GetBadges returns a list of all badge descriptions (API endpoint: GET /api/badges/)
+func (h *Handler) GetBadges(c *gin.Context) {
+	// Get badge descriptions from database
+	descriptions, err := h.badgeRepo.GetAllDescriptions()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status":  "error",
+			"message": "Failed to retrieve badges",
+		})
+		return
+	}
+
+	// Convert to response format
+	var badgeResponses []BadgeResponse
+	for _, desc := range descriptions {
+		response := BadgeResponse{
+			ID:    desc.ID,
+			Title: desc.Title,
+		}
+		
+		if desc.Description.Valid {
+			response.Description = desc.Description.String
+		}
+		if desc.Slug.Valid {
+			response.Slug = desc.Slug.String
+		}
+		if desc.Icon.Valid {
+			response.Icon = desc.Icon.String
+		}
+		if desc.Color.Valid {
+			response.Color = desc.Color.String
+		}
+		
+		badgeResponses = append(badgeResponses, response)
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status": "success",
+		"data":   badgeResponses,
+	})
+}
+
 // GetUserBadges returns user badges (for HTMX, requires authentication)
 func (h *Handler) GetUserBadges(c *gin.Context) {
 	user := middleware.GetCurrentUser(c)

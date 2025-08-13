@@ -82,6 +82,12 @@ func main() {
 		protected.GET("/dashboard", handler.Dashboard)
 		protected.GET("/profile", handler.Profile)
 		protected.GET("/admin", handler.Admin)
+		
+		// Profile management endpoints
+		protected.POST("/profile/change-password", handler.ChangePassword)
+		protected.POST("/profile/update", handler.UpdateProfile)
+		protected.GET("/profile/card/front", handler.ProfileCardFront)
+		protected.GET("/profile/card/back", handler.ProfileCardBack)
 	}
 
 	// API routes
@@ -94,20 +100,27 @@ func main() {
 		apiProtected := api.Group("/")
 		apiProtected.Use(middleware.RequireAuth(handler.GetAccountRepo()))
 		{
+			// Account management endpoints
+			apiProtected.GET("/accounts", handler.GetAccounts)
+			apiProtected.GET("/accounts/:id", handler.GetAccount)
+
+			// Badge management endpoints
+			apiProtected.GET("/badges", handler.GetBadges)
 			apiProtected.GET("/user/badges", handler.GetUserBadges)
 			apiProtected.GET("/badges/available", handler.GetAvailableBadges)
 			apiProtected.POST("/badges/create", handler.CreateBadge)
 			apiProtected.POST("/badges/award", handler.AwardBadge)
+
+			// Membership endpoints
+			apiProtected.GET("/memberships", handler.GetMembershipStatusAPI)
+			apiProtected.GET("/membership/status", handler.GetMembershipStatus)
+			apiProtected.GET("/membership/active", handler.GetActiveMembersDetailed)
 
 			// Tool management routes
 			apiProtected.GET("/tools", handler.GetTools)
 			apiProtected.GET("/tools/checkouts", handler.GetActiveCheckouts)
 			apiProtected.POST("/tools/checkout", handler.CheckoutTool)
 			apiProtected.POST("/tools/checkin", handler.CheckinTool)
-
-			// Membership routes
-			apiProtected.GET("/membership/status", handler.GetMembershipStatus)
-			apiProtected.GET("/membership/active", handler.GetActiveMembersDetailed)
 		}
 	}
 

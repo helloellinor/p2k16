@@ -150,7 +150,7 @@ func (h *Handler) renderProfileCardBackHTML(user *middleware.AuthenticatedUser) 
 <section>
 	<header><h2>Change Password</h2></header>
 	<div>
-		<form hx-post="/api/profile/change-password" hx-target="#password-result">
+		<form hx-post="/profile/change-password" hx-target="#password-result">
 			<div>
 				<label for="oldPassword">Current Password</label>
 				<input type="password" id="oldPassword" name="oldPassword" required>
@@ -169,12 +169,12 @@ func (h *Handler) renderProfileCardBackHTML(user *middleware.AuthenticatedUser) 
 	</div>
 </section>`
 
-	// Profile details form
+	// Profile details form  
 	details := `
 <section>
 	<header><h2>Profile Details</h2></header>
 	<div>
-		<form hx-post="/api/profile/update" hx-target="#profile-result">
+		<form hx-post="/profile/update" hx-target="#profile-result">
 			<div>
 				<label for="name">Full Name</label>
 				<input type="text" id="name" name="name" placeholder="Enter your full name">
